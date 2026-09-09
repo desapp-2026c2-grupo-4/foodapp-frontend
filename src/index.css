@@ -1,28 +1,35 @@
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import "tailwindcss";
 
-  color: #242424;
-  background-color: rgba(255, 255, 255, 0.87);
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@theme {
+  --color-primary: #e63946;
+  --color-primary-dark: #c92a2a;
+  --color-accent: #f9a826;
+  --color-text: #1f1f1f;
+  --color-text-soft: #666666;
+  --color-background: #f8f9fa;
+  --color-white: #ffffff;
+  --color-border: #e7e7e7;
+  --color-success: #2e9d5b;
+  --color-warning: #f9a826;
+  --color-danger: #d62828;
+  --font-sans: "Montserrat", sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+button {
+  cursor: pointer;
 }
