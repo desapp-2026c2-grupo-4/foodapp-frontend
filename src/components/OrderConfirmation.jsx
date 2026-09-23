@@ -44,12 +44,26 @@ export default function OrderConfirmation({ pedido, onClose }) {
             <div className="space-y-2">
               {pedido.detalles?.map((d) => (
                 <div key={d.id_detalle} className="flex justify-between text-sm border border-border rounded-md px-3 py-2 bg-white">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <span className="font-medium">{d.producto?.nombre || `Producto #${d.id_producto}`}</span>
                     <span className="text-text-soft"> x{d.cantidad}</span>
+                    {d.promocion && (
+                      <span className="ml-2 text-[11px] font-bold bg-accent text-white px-2 py-0.5 rounded-pill">
+                        Promo: {d.promocion.nombre}
+                      </span>
+                    )}
+                    {d.opciones?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {d.opciones.map((o) => (
+                          <span key={o.id_detalle_opcional} className="text-xs bg-background border border-border px-2 py-0.5 rounded-pill">
+                            {o.opcional?.nombre} {parseFloat(o.precio) > 0 && `+$${parseFloat(o.precio).toFixed(2)}`}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {d.observaciones && <p className="text-xs text-text-soft">Obs: {d.observaciones}</p>}
                   </div>
-                  <span className="font-semibold">${(parseFloat(d.precio) * d.cantidad).toFixed(2)}</span>
+                  <span className="font-semibold shrink-0 ml-3">${(parseFloat(d.precio) * d.cantidad).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -64,7 +78,7 @@ export default function OrderConfirmation({ pedido, onClose }) {
             <button onClick={onClose} className="flex-1 border border-border bg-white py-2.5 rounded-pill font-semibold hover:bg-background">
               Cerrar
             </button>
-            <Link to="/" onClick={onClose} className="flex-1 bg-primary hover:bg-primary-dark text-white py-2.5 rounded-pill font-semibold text-center">
+            <Link to="/catalogo" onClick={onClose} className="flex-1 bg-primary hover:bg-primary-dark text-white py-2.5 rounded-pill font-semibold text-center">
               Seguir comprando
             </Link>
           </div>
