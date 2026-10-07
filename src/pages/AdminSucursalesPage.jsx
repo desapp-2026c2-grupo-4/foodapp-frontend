@@ -7,6 +7,8 @@ import {
   updateSucursal,
   deleteSucursal,
 } from "../services/sucursalService.js";
+import MapPicker from "../components/MapPicker.jsx";
+import { reverseGeocode } from "../utils/geocoding.js";
 
 const emptyForm = {
   nombre: "",
@@ -17,6 +19,7 @@ const emptyForm = {
   altura: "",
   ciudad: "",
   provincia: "",
+  codigo_postal: "",
   latitud: "",
   longitud: "",
 };
@@ -30,6 +33,41 @@ export default function AdminSucursalesPage() {
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState("");
   const [listaAbierta, setListaAbierta] = useState(false);
+  const [resolviendo, setResolviendo] = useState(false);
+  const [geoMsg, setGeoMsg] = useState("");
+
+  const latNum = parseFloat(form.latitud);
+  const lngNum = parseFloat(form.longitud);
+  const mapPosition =
+    form.latitud !== "" && form.longitud !== "" && !Number.isNaN(latNum) && !Number.isNaN(lngNum)
+      ? [latNum, lngNum]
+      : null;
+
+  const handlePick = async (lat, lng) => {
+    setGeoMsg("");
+    setResolviendo(true);
+    try {
+      const r = await reverseGeocode(lat, lng);
+      setForm((f) => ({
+        ...f,
+        calle: r.calle || f.calle,
+        altura: r.altura || f.altura,
+        ciudad: r.ciudad || f.ciudad,
+        provincia: r.provincia || f.provincia,
+        codigo_postal: r.codigo_postal || f.codigo_postal,
+        latitud: lat,
+        longitud: lng,
+      }));
+      if (!r.calle || !r.altura) {
+        setGeoMsg("No se encontró una dirección exacta en ese punto, completala manualmente");
+      }
+    } catch {
+      setGeoMsg("No se pudo resolver la dirección, completala manualmente");
+      setForm((f) => ({ ...f, latitud: lat, longitud: lng }));
+    } finally {
+      setResolviendo(false);
+    }
+  };
 
   const fetch = async () => {
     setLoading(true);
@@ -68,6 +106,7 @@ export default function AdminSucursalesPage() {
     altura: form.altura,
     ciudad: form.ciudad,
     provincia: form.provincia,
+    codigo_postal: form.codigo_postal || undefined,
     latitud: form.latitud === "" ? undefined : parseFloat(form.latitud),
     longitud: form.longitud === "" ? undefined : parseFloat(form.longitud),
   });
@@ -105,6 +144,7 @@ export default function AdminSucursalesPage() {
       altura: s.altura || "",
       ciudad: s.ciudad || "",
       provincia: s.provincia || "",
+      codigo_postal: s.codigo_postal || "",
       latitud: s.latitud ?? "",
       longitud: s.longitud ?? "",
     });
@@ -155,6 +195,18 @@ export default function AdminSucursalesPage() {
             <input name="horario" value={form.horario} onChange={handleChange} placeholder="10:00-23:00" className="w-full border border-border rounded-md px-3 py-2 mt-1" />
           </label>
         </div>
+        <div className="border-t border-border pt-4 space-y-3">
+          <p className="font-semibold text-sm">Ubicación en mapa</p>
+          <p className="text-xs text-text-soft">Tocá el mapa para ubicar el marcador (o arrastralo); se autocompletan calle, altura, ciudad, provincia y código postal</p>
+          <MapPicker position={mapPosition} onPick={handlePick} />
+          {(mapPosition || resolviendo) && (
+            <p className="text-xs text-text-soft">
+              {mapPosition && <>Lat: {mapPosition[0].toFixed(6)}, Lng: {mapPosition[1].toFixed(6)}</>}
+              {resolviendo && " — resolviendo dirección..."}
+            </p>
+          )}
+          {geoMsg && <p className="text-xs text-text-soft">{geoMsg}</p>}
+        </div>
         <div className="grid md:grid-cols-2 gap-4">
           <label className="text-sm">
             Calle*
@@ -165,7 +217,7 @@ export default function AdminSucursalesPage() {
             <input name="altura" value={form.altura} onChange={handleChange} required className="w-full border border-border rounded-md px-3 py-2 mt-1" />
           </label>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           <label className="text-sm">
             Ciudad*
             <input name="ciudad" value={form.ciudad} onChange={handleChange} required className="w-full border border-border rounded-md px-3 py-2 mt-1" />
@@ -173,6 +225,10 @@ export default function AdminSucursalesPage() {
           <label className="text-sm">
             Provincia*
             <input name="provincia" value={form.provincia} onChange={handleChange} required className="w-full border border-border rounded-md px-3 py-2 mt-1" />
+          </label>
+          <label className="text-sm">
+            Código postal
+            <input name="codigo_postal" value={form.codigo_postal} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" />
           </label>
         </div>
         <div className="grid md:grid-cols-2 gap-4">
@@ -238,7 +294,7 @@ export default function AdminSucursalesPage() {
                 <span className="text-xs text-text-soft shrink-0">{s.estado}</span>
               </div>
               <p className="text-sm text-text-soft">
-                {s.calle} {s.altura}, {s.ciudad} ({s.provincia})
+                {s.calle} {s.altura}, {s.ciudad} ({s.provincia}){s.codigo_postal ? ` · CP ${s.codigo_postal}` : ""}
               </p>
               <p className="text-sm text-text-soft">
                 Tel: {s.telefono || "—"} · Horario: {s.horario || "—"}
@@ -279,7 +335,7 @@ export default function AdminSucursalesPage() {
                   <td className="px-4 py-2">{s.nombre}</td>
                   <td className="px-4 py-2">{s.estado}</td>
                   <td className="px-4 py-2">
-                    {s.calle} {s.altura}, {s.ciudad} ({s.provincia})
+                    {s.calle} {s.altura}, {s.ciudad} ({s.provincia}){s.codigo_postal ? ` · CP ${s.codigo_postal}` : ""}
                   </td>
                   <td className="px-4 py-2 text-text-soft">
                     {s.telefono || "—"} / {s.horario || "—"}

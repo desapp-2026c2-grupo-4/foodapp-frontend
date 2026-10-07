@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerCliente } from "../services/clienteService.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import DireccionPicker from "../components/DireccionPicker.jsx";
+import { createDireccion } from "../services/direccionService.js";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { loginAsCliente } = useAuth();
+  const { register } = useAuth();
   const [form, setForm] = useState({
     nombre: "",
     apellido: "",
@@ -17,8 +18,12 @@ export default function RegisterPage() {
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [direccion, setDireccion] = useState(null);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const direccionValida = (d) =>
+    d && d.latitud !== undefined && d.calle && d.altura && d.ciudad && d.provincia;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,15 +31,29 @@ export default function RegisterPage() {
     if (form.password !== form.confirmPassword) {
       return setMsg("Error: las contraseñas no coinciden");
     }
+    if (!direccionValida(direccion)) {
+      return setMsg("Error: ubicá tu dirección en el mapa (calle, altura, ciudad y provincia)");
+    }
     setSaving(true);
     try {
       const { confirmPassword: _omit, ...payload } = form;
-      const cliente = await registerCliente({
+      // El backend siempre crea CLIENTE, sin importar qué se envíe
+      const usuario = await register({
         ...payload,
         tipo_doc: payload.tipo_doc || undefined,
         dni: payload.dni || undefined,
       });
-      loginAsCliente(cliente);
+      await createDireccion(usuario.id_cliente, {
+        calle: direccion.calle,
+        altura: direccion.altura,
+        piso: direccion.piso || undefined,
+        departamento: direccion.departamento || undefined,
+        ciudad: direccion.ciudad,
+        provincia: direccion.provincia,
+        codigo_postal: direccion.codigo_postal || undefined,
+        latitud: direccion.latitud,
+        longitud: direccion.longitud,
+      });
       navigate("/catalogo");
     } catch (err) {
       setMsg(`Error: ${err.message}`);
@@ -49,8 +68,8 @@ export default function RegisterPage() {
         <h1 className="text-3xl font-extrabold text-center text-text">Crear cuenta</h1>
         <p className="text-center text-text-soft mt-2">
           Registrate como cliente para comprar. ¿Ya tenés cuenta?{" "}
-          <Link to="/" className="text-primary underline font-medium">
-            Elegí tu usuario
+          <Link to="/login" className="text-primary underline font-medium">
+            Iniciá sesión
           </Link>
         </p>
 
@@ -90,6 +109,11 @@ export default function RegisterPage() {
             </label>
           </div>
 
+          <div className="border-t border-border pt-4">
+            <p className="font-semibold text-sm mb-1">Tu dirección*</p>
+            <DireccionPicker onChange={setDireccion} />
+          </div>
+
           {msg && (
             <p className="text-sm p-2 rounded-md border bg-red-50 text-danger border-red-200">{msg}</p>
           )}
@@ -97,7 +121,7 @@ export default function RegisterPage() {
           <button type="submit" disabled={saving} className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-pill font-semibold disabled:opacity-50">
             {saving ? "Registrando..." : "Registrarme"}
           </button>
-          <p className="text-xs text-text-soft text-center">POST /api/clientes</p>
+          <p className="text-xs text-text-soft text-center">POST /api/auth/register (siempre CLIENTE)</p>
         </form>
       </div>
     </div>

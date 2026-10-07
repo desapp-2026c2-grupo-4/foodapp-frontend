@@ -9,6 +9,7 @@ import EmployeeOrdersPage from "./pages/EmployeeOrdersPage.jsx";
 import EmployeeOrderDetailPage from "./pages/EmployeeOrderDetailPage.jsx";
 import UserSelectionPage from "./pages/UserSelectionPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
 import ClientHistoryPage from "./pages/ClientHistoryPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import AdminProductsPage from "./pages/AdminProductsPage.jsx";
@@ -16,10 +17,13 @@ import AdminSucursalesPage from "./pages/AdminSucursalesPage.jsx";
 import AdminCategoriasPage from "./pages/AdminCategoriasPage.jsx";
 import AdminReportesPage from "./pages/AdminReportesPage.jsx";
 import AdminPromocionesPage from "./pages/AdminPromocionesPage.jsx";
+import AdminBannersPage from "./pages/AdminBannersPage.jsx";
+import AdminEmpleadosPage from "./pages/AdminEmpleadosPage.jsx";
+import FloatingCartButton from "./components/FloatingCartButton.jsx";
 
 function Navbar() {
   const { count } = useCart();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin, isStaff } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -37,7 +41,7 @@ function Navbar() {
           { to: "/mis-pedidos", label: "Mis pedidos" },
           { to: "/perfil", label: "Perfil" },
         ]
-      : user?.rol === "ADMIN"
+      : isStaff
         ? [
             { to: "/empleados/pedidos", label: "Pedidos" },
             { to: "/admin/productos", label: "Productos" },
@@ -45,6 +49,8 @@ function Navbar() {
             { to: "/admin/sucursales", label: "Sucursales" },
             { to: "/admin/reportes", label: "Reportes" },
             { to: "/admin/promociones", label: "Promociones" },
+            { to: "/admin/banners", label: "Banners" },
+            ...(isAdmin ? [{ to: "/admin/empleados", label: "Empleados" }] : []),
             { to: "/catalogo", label: "Catálogo" },
           ]
         : [
@@ -80,7 +86,10 @@ function Navbar() {
           {user ? (
             <button onClick={handleSalir} className="text-xs border border-white/30 px-3 py-1 rounded-pill hover:bg-white/10">Salir</button>
           ) : (
-            <Link to="/" className="text-xs bg-primary text-white px-3 py-1 rounded-pill">Elegir usuario</Link>
+            <>
+              <Link to="/login" className="text-xs font-medium hover:text-[#F8A426]">Ingresar</Link>
+              <Link to="/" className="text-xs bg-primary text-white px-3 py-1 rounded-pill">Elegir usuario</Link>
+            </>
           )}
         </div>
 
@@ -118,9 +127,14 @@ function Navbar() {
               Salir
             </button>
           ) : (
-            <Link to="/" onClick={() => setOpen(false)} className="block px-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-white text-center">
-              Elegir usuario
-            </Link>
+            <>
+              <Link to="/login" onClick={() => setOpen(false)} className="block px-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-white text-center">
+                Ingresar
+              </Link>
+              <Link to="/" onClick={() => setOpen(false)} className="block px-2 py-2.5 rounded-md text-sm font-medium text-center hover:bg-white/10">
+                Elegir usuario
+              </Link>
+            </>
           )}
         </div>
       )}
@@ -131,7 +145,14 @@ function Navbar() {
 function RequireAdmin({ children }) {
   const { isAdmin, user } = useAuth();
   if (!user) return <Navigate to="/" replace />;
-  if (!isAdmin) return <div className="p-8 text-center text-danger">Acceso denegado — Solo administrador puede ver /empleados/pedidos. <Link to="/" className="text-primary underline">Elegir usuario</Link></div>;
+  if (!isAdmin) return <div className="p-8 text-center text-danger">Acceso denegado — Solo administrador puede ver esta página. <Link to="/" className="text-primary underline">Elegir usuario</Link></div>;
+  return children;
+}
+
+function RequireStaff({ children }) {
+  const { isStaff, user } = useAuth();
+  if (!user) return <Navigate to="/" replace />;
+  if (!isStaff) return <div className="p-8 text-center text-danger">Acceso denegado — Solo personal autorizado puede ver esta página. <Link to="/" className="text-primary underline">Elegir usuario</Link></div>;
   return children;
 }
 
@@ -152,19 +173,23 @@ export default function App() {
             <Routes>
               <Route path="/" element={<UserSelectionPage />} />
               <Route path="/registro" element={<RegisterPage />} />
+              <Route path="/login" element={<LoginPage />} />
               <Route path="/catalogo" element={<CatalogPage />} />
               <Route path="/carrito" element={<CartPage />} />
               <Route path="/mis-pedidos" element={<RequireCliente><ClientHistoryPage /></RequireCliente>} />
               <Route path="/perfil" element={<RequireCliente><ProfilePage /></RequireCliente>} />
-              <Route path="/admin/productos" element={<RequireAdmin><AdminProductsPage /></RequireAdmin>} />
-              <Route path="/admin/categorias" element={<RequireAdmin><AdminCategoriasPage /></RequireAdmin>} />
-              <Route path="/admin/sucursales" element={<RequireAdmin><AdminSucursalesPage /></RequireAdmin>} />
-              <Route path="/admin/reportes" element={<RequireAdmin><AdminReportesPage /></RequireAdmin>} />
-              <Route path="/admin/promociones" element={<RequireAdmin><AdminPromocionesPage /></RequireAdmin>} />
-              <Route path="/empleados/pedidos" element={<RequireAdmin><EmployeeOrdersPage /></RequireAdmin>} />
-              <Route path="/empleados/pedidos/:id" element={<RequireAdmin><EmployeeOrderDetailPage /></RequireAdmin>} />
+              <Route path="/admin/productos" element={<RequireStaff><AdminProductsPage /></RequireStaff>} />
+              <Route path="/admin/categorias" element={<RequireStaff><AdminCategoriasPage /></RequireStaff>} />
+              <Route path="/admin/sucursales" element={<RequireStaff><AdminSucursalesPage /></RequireStaff>} />
+              <Route path="/admin/reportes" element={<RequireStaff><AdminReportesPage /></RequireStaff>} />
+              <Route path="/admin/promociones" element={<RequireStaff><AdminPromocionesPage /></RequireStaff>} />
+              <Route path="/admin/banners" element={<RequireStaff><AdminBannersPage /></RequireStaff>} />
+              <Route path="/admin/empleados" element={<RequireAdmin><AdminEmpleadosPage /></RequireAdmin>} />
+              <Route path="/empleados/pedidos" element={<RequireStaff><EmployeeOrdersPage /></RequireStaff>} />
+              <Route path="/empleados/pedidos/:id" element={<RequireStaff><EmployeeOrderDetailPage /></RequireStaff>} />
               <Route path="*" element={<div className="p-8 text-center">404 - No encontrado</div>} />
             </Routes>
+            <FloatingCartButton />
           </div>
         </CartProvider>
       </AuthProvider>

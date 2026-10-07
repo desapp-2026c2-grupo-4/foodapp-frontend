@@ -144,7 +144,7 @@ export function CartProvider({ children }) {
     clienteId = clienteId || 1;
     // si no hay direccionId, intentar inferir: para cliente 1->1, 2->2, 3->3
     if (!direccionId) direccionId = clienteId;
-    sucursalId = sucursalId || 1;
+    // Sin sucursal explícita el backend asigna la más cercana con stock suficiente
 
     const detalles = items.map((p) => {
       if (p.tipo === "promocion") {
@@ -161,7 +161,9 @@ export function CartProvider({ children }) {
         opcionales: (p.opcionales || []).map((o) => o.id_opcional),
       };
     });
-    const pedido = await createPedido({ id_cliente: clienteId, id_direccion: direccionId, id_sucursal: sucursalId, detalles });
+    const payload = { id_cliente: clienteId, id_direccion: direccionId, detalles };
+    if (sucursalId) payload.id_sucursal = sucursalId;
+    const pedido = await createPedido(payload);
     clearCart();
     return pedido;
   };

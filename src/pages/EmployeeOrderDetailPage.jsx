@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getPedidoById, updatePedidoEstado } from "../services/pedidoService.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import StatusBadge, { ESTADOS_EMPLEADO } from "../components/StatusBadge.jsx";
 
 function formatFecha(fecha) {
@@ -9,6 +10,7 @@ function formatFecha(fecha) {
 
 export default function EmployeeOrderDetailPage() {
   const { id } = useParams();
+  const { user, isAdmin } = useAuth();
   const [pedido, setPedido] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,6 +54,16 @@ export default function EmployeeOrderDetailPage() {
   if (loading) return <p className="p-8 text-center text-text-soft">Cargando pedido #{id}...</p>;
   if (error) return <p className="p-8 text-center text-danger">Error: {error} <Link to="/empleados/pedidos" className="text-primary underline">Volver</Link></p>;
   if (!pedido) return null;
+  if (!isAdmin && pedido.id_sucursal !== user?.id_sucursal) {
+    return (
+      <div className="max-w-4xl mx-auto p-4 md:p-6">
+        <p className="bg-white rounded-lg border border-border p-8 text-center text-danger">
+          Acceso denegado — Este pedido pertenece a otra sucursal.{" "}
+          <Link to="/empleados/pedidos" className="text-primary underline">Volver a pedidos</Link>
+        </p>
+      </div>
+    );
+  }
 
   const dir = pedido.direccion;
   const cli = pedido.cliente;
@@ -141,7 +153,9 @@ export default function EmployeeOrderDetailPage() {
               );
             })}
           </ol>
-          {siguiente ? (
+          {pedido.estado === "Cancelado" ? (
+            <p className="text-sm font-semibold text-danger bg-red-50 border border-red-200 rounded-md p-3">Pedido cancelado — no se puede cambiar el estado.</p>
+          ) : siguiente ? (
             <button
               onClick={handleAvanzar}
               disabled={updating}
