@@ -3,11 +3,143 @@ import { apiFetch } from "../services/api.js";
 import { getProductos } from "../services/productService.js";
 import { getOpcionalesByProducto, createOpcional, updateOpcional, deleteOpcional } from "../services/opcionalService.js";
 import { getCategorias } from "../services/categoriaService.js";
+import { getSucursalById } from "../services/sucursalService.js";
+import { getStockSucursal, agregarStock } from "../services/stockService.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { Link } from "react-router-dom";
 
+function VistaStockEmpleado({ idSucursal }) {
+  const [filas, setFilas] = useState([]);
+  const [sucursal, setSucursal] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [cantidades, setCantidades] = useState({});
+  const [msg, setMsg] = useState("");
+  const [listaAbierta, setListaAbierta] = useState(false);
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const [stock, suc] = await Promise.all([
+        getStockSucursal(idSucursal),
+        getSucursalById(idSucursal),
+      ]);
+      setFilas(stock);
+      setSucursal(suc);
+    } catch (e) { setError(e.message); } finally { setLoading(false); }
+  };
+  useEffect(() => { if (idSucursal) cargar(); else setLoading(false); }, [idSucursal]);
+
+  if (!idSucursal) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
+        <p className="bg-white rounded-lg border border-border p-8 text-center text-text-soft">No tenés sucursal asignada. Pedile a un administrador que te asigne una.</p>
+      </div>
+    );
+  }
+  if (loading) return <p className="p-8 text-center text-text-soft">Cargando stock...</p>;
+  if (error) return <p className="p-8 text-center text-danger">{error}</p>;
+
+  const handleAgregar = async (id_producto) => {
+    const cantidad = parseInt(cantidades[id_producto], 10);
+    if (!Number.isInteger(cantidad) || cantidad < 1) {
+      setMsg("Error: ingresá una cantidad entera mayor a 0");
+      return;
+    }
+    try {
+      const r = await agregarStock({ id_sucursal: idSucursal, id_producto, cantidad });
+      setMsg(`Stock actualizado: ${r.nombre} → ${r.stock} unidades`);
+      setCantidades((prev) => ({ ...prev, [id_producto]: "" }));
+      setFilas(await getStockSucursal(idSucursal));
+    } catch (err) { setMsg(`Error: ${err.message}`); }
+  };
+
+  const controlAgregar = (p) => (
+    <div className="flex gap-2 items-center">
+      <input
+        type="number"
+        min="1"
+        step="1"
+        placeholder="Cant."
+        value={cantidades[p.id_producto] ?? ""}
+        onChange={(e) => setCantidades((prev) => ({ ...prev, [p.id_producto]: e.target.value }))}
+        className="w-20 border border-border rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary"
+      />
+      <button onClick={() => handleAgregar(p.id_producto)} className="text-xs bg-success text-white px-3 py-1.5 rounded-pill hover:brightness-110 shrink-0">Agregar</button>
+    </div>
+  );
+
+  return (
+    <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-extrabold">Stock — {sucursal?.nombre}</h1>
+        <p className="text-sm text-text-soft">Productos y stock de tu sucursal. El stock disminuye solo con los pedidos.</p>
+      </div>
+      {msg && <p className={`text-sm p-2 rounded-md border ${msg.startsWith("Error") ? "bg-red-50 text-danger border-red-200" : "bg-green-50 text-success border-green-200"}`}>{msg}</p>}
+
+      <div className="bg-white rounded-lg border border-border overflow-hidden">
+        <button
+          onClick={() => setListaAbierta((v) => !v)}
+          aria-expanded={listaAbierta}
+          className="w-full flex justify-between items-center px-4 py-3 md:cursor-default"
+        >
+          <span className="font-bold text-sm">Productos ({filas.length})</span>
+          <svg
+            className={`w-4 h-4 md:hidden transition-transform ${listaAbierta ? "rotate-180" : ""}`}
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+          </svg>
+        </button>
+
+        {/* Tarjetas apiladas en una columna (mobile) */}
+        <div className={`${listaAbierta ? "block" : "hidden"} md:hidden space-y-3 p-4 border-t border-border`}>
+          {filas.map((p) => (
+            <div key={p.id_producto} className="rounded-md border border-border p-4 space-y-2 bg-white">
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <span className="font-bold text-primary text-sm">#{p.id_producto}</span>
+                  <p className="font-semibold">{p.nombre}</p>
+                </div>
+                <span className={`text-sm font-bold shrink-0 ${p.stock > 0 ? "text-success" : "text-danger"}`}>Stock: {p.stock}</span>
+              </div>
+              <p className="text-sm text-text-soft">${parseFloat(p.precio).toFixed(2)} · {p.estado}</p>
+              {controlAgregar(p)}
+            </div>
+          ))}
+          {filas.length === 0 && (
+            <p className="text-sm text-text-soft text-center">No hay productos</p>
+          )}
+        </div>
+
+        {/* Tabla (desktop) */}
+        <div className="hidden md:block">
+        <table className="w-full text-sm">
+          <thead className="bg-background border-b border-border text-text-soft">
+            <tr><th className="text-left px-4 py-2">#</th><th className="text-left px-4 py-2">Producto</th><th className="text-left px-4 py-2">Precio</th><th className="text-left px-4 py-2">Stock</th><th className="text-center px-4 py-2">Agregar stock</th></tr>
+          </thead>
+          <tbody>
+            {filas.map((p) => (
+              <tr key={p.id_producto} className="border-b border-border align-top">
+                <td className="px-4 py-2 font-bold text-primary">#{p.id_producto}</td>
+                <td className="px-4 py-2">{p.nombre}</td>
+                <td className="px-4 py-2">${parseFloat(p.precio).toFixed(2)}</td>
+                <td className={`px-4 py-2 font-bold ${p.stock > 0 ? "text-success" : "text-danger"}`}>{p.stock}</td>
+                <td className="px-4 py-2"><div className="flex justify-center">{controlAgregar(p)}</div></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminProductsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isStaff, user } = useAuth();
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,7 +184,8 @@ export default function AdminProductsPage() {
   };
   useEffect(() => { if (isAdmin) fetch(); }, [isAdmin]);
 
-  if (!isAdmin) return <p className="p-8 text-center text-danger">Acceso denegado — Solo administrador puede gestionar productos. <Link to="/" className="text-primary underline">Elegir usuario</Link></p>;
+  if (!isStaff) return <p className="p-8 text-center text-danger">Acceso denegado — Solo personal autorizado puede ver esta página. <Link to="/" className="text-primary underline">Elegir usuario</Link></p>;
+  if (!isAdmin) return <VistaStockEmpleado idSucursal={user?.id_sucursal} />;
   if (loading) return <p className="p-8 text-center text-text-soft">Cargando productos...</p>;
   if (error) return <p className="p-8 text-center text-danger">{error}</p>;
 

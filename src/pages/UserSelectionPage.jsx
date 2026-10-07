@@ -72,6 +72,12 @@ export default function UserSelectionPage() {
           <button onClick={() => navigate("/registro")} className="mt-2 bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-pill font-semibold text-sm">
             Registrarme como cliente
           </button>
+          <p className="text-sm text-text-soft mt-3">
+            ¿Ya tenés cuenta?{" "}
+            <button onClick={() => navigate("/login")} className="text-primary underline font-medium">
+              Iniciá sesión con tu email
+            </button>
+          </p>
         </div>
 
         <div className="flex gap-3 justify-center mt-6">

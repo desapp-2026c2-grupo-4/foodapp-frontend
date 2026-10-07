@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 @theme {
+  --animate-cart-bump: cart-bump 0.45s ease;
+
+  @keyframes cart-bump {
+    0% { transform: scale(1) rotate(0deg); }
+    40% { transform: scale(1.25) rotate(-8deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
   --color-primary: #e63946;
   --color-primary-dark: #c92a2a;
   --color-accent: #f9a826;

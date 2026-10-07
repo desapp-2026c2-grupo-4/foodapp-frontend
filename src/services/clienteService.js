@@ -13,3 +13,9 @@ export const updateCliente = (id, data) =>
     method: "PUT",
     body: JSON.stringify(data),
   });
+
+export const cambiarPassword = (id, { passwordActual, passwordNueva }) =>
+  apiFetch(`/clientes/${id}/password`, {
+    method: "PUT",
+    body: JSON.stringify({ passwordActual, passwordNueva }),
+  });

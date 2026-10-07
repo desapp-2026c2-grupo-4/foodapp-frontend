@@ -23,8 +23,9 @@ export default function CartPage() {
       if (!direccionId) {
         throw new Error("El cliente no tiene direcciones cargadas");
       }
-      // El pedido se crea a nombre del usuario logueado, no de un id fijo
-      const pedido = await confirmCart({ id_cliente: user.id_cliente, id_direccion: direccionId, id_sucursal: 1 });
+      // El pedido se crea a nombre del usuario logueado y sin sucursal fija:
+      // el backend asigna la más cercana a la dirección con stock suficiente
+      const pedido = await confirmCart({ id_cliente: user.id_cliente, id_direccion: direccionId });
       setPedidoConfirmado(pedido);
     } catch (e) {
       setMsg({ type: "error", text: e.message });
