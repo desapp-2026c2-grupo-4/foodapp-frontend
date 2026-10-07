@@ -2,7 +2,101 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { apiFetch } from "../services/api.js";
+import { updatePedidoEstado } from "../services/pedidoService.js";
 import StatusBadge from "../components/StatusBadge.jsx";
+
+// Se puede cancelar salvo que esté entregado o ya cancelado (igual que el backend)
+const esCancelable = (estado) => estado !== "Entregado" && estado !== "Cancelado";
+
+function OrderCard({ pedido, onCambio }) {
+  const [cancelando, setCancelando] = useState(false);
+  const [msg, setMsg] = useState("");
+  const p = pedido;
+
+  const handleCancelar = async () => {
+    if (!confirm(`¿Cancelar el pedido #${p.id_pedido}? Esta acción no se puede deshacer.`)) return;
+    setCancelando(true);
+    setMsg("");
+    try {
+      await updatePedidoEstado(p.id_pedido, "Cancelado");
+      onCambio();
+    } catch (e) {
+      setMsg(`Error: ${e.message}`);
+    } finally {
+      setCancelando(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-border p-5">
+      <div className="flex justify-between items-start gap-2">
+        <div>
+          <p className="font-bold">Pedido <span className="text-primary">#{p.id_pedido}</span></p>
+          <p className="text-xs text-text-soft">{new Date(p.fecha_hora).toLocaleString("es-AR")} — {p.direccion?.calle} {p.direccion?.altura}, {p.direccion?.ciudad}</p>
+        </div>
+        <StatusBadge estado={p.estado} />
+      </div>
+      <ul className="mt-3 space-y-2 text-sm">
+        {p.detalles?.map((d) => (
+          <li key={d.id_detalle} className="flex justify-between gap-4 border border-border rounded-md px-3 py-2 bg-background">
+            <div>
+              <span className="font-medium">{d.producto?.nombre} x{d.cantidad}</span>
+              {d.promocion && (
+                <span className="ml-2 text-[11px] font-bold bg-accent text-white px-2 py-0.5 rounded-pill">
+                  Promo: {d.promocion.nombre}
+                </span>
+              )}
+              {d.opciones?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {d.opciones.map((o) => (
+                    <span key={o.id_detalle_opcional} className="text-xs bg-white border border-border px-2 py-0.5 rounded-pill">
+                      {o.opcional?.nombre} {parseFloat(o.opcional?.precio) > 0 && `+$${parseFloat(o.precio).toFixed(2)}`}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {d.observaciones && <p className="text-xs text-text-soft mt-1">Obs: {d.observaciones}</p>}
+            </div>
+            <span className="font-semibold shrink-0">${(d.cantidad*parseFloat(d.precio)).toFixed(2)}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex justify-between font-bold border-t border-border pt-3 mt-3">
+        <span>Total</span><span className="text-primary">${parseFloat(p.importe).toFixed(2)}</span>
+      </div>
+      <div className="mt-3">
+        <p className="font-semibold text-sm mb-2">Seguimiento del pedido</p>
+        {p.historial?.length > 0 ? (
+          <ol className="space-y-1.5">
+            {[...p.historial]
+              .sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora))
+              .map((h) => (
+                <li key={h.id_historial} className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                  <StatusBadge estado={h.estado} />
+                  <span className="text-text-soft">{new Date(h.fecha_hora).toLocaleString("es-AR")}</span>
+                </li>
+              ))}
+          </ol>
+        ) : (
+          <p className="text-xs text-text-soft">Sin movimientos registrados.</p>
+        )}
+      </div>
+      {esCancelable(p.estado) && (
+        <div className="mt-3">
+          <button
+            onClick={handleCancelar}
+            disabled={cancelando}
+            className="w-full sm:w-auto border border-danger text-danger px-6 py-2 rounded-pill font-semibold text-sm hover:bg-danger hover:text-white transition disabled:opacity-50"
+          >
+            {cancelando ? "Cancelando..." : "Cancelar pedido"}
+          </button>
+          {msg && <p className="text-sm p-2 mt-2 rounded-md bg-red-50 text-danger border border-red-200">{msg}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ClientHistoryPage() {
   const { user } = useAuth();
@@ -10,13 +104,16 @@ export default function ClientHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const fetchPedidos = () => {
     if (!user || user.rol !== "CLIENTE") { setLoading(false); return; }
+    setLoading(true);
     apiFetch(`/pedidos?id_cliente=${user.id_cliente}`)
       .then(setPedidos)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [user]);
+  };
+
+  useEffect(() => { fetchPedidos(); }, [user]);
 
   if (!user) return <p className="p-8 text-center">Debes <Link to="/" className="text-primary underline">elegir un usuario</Link></p>;
   if (user.rol !== "CLIENTE") return <p className="p-8 text-center text-text-soft">El historial es solo para clientes. Estás como <b>{user.rol}</b>. <Link to="/" className="text-primary underline">Cambiar usuario</Link></p>;
@@ -36,61 +133,7 @@ export default function ClientHistoryPage() {
       ) : (
         <div className="space-y-4">
           {pedidos.map((p) => (
-            <div key={p.id_pedido} className="bg-white rounded-lg border border-border p-5">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-bold">Pedido <span className="text-primary">#{p.id_pedido}</span></p>
-                  <p className="text-xs text-text-soft">{new Date(p.fecha_hora).toLocaleString("es-AR")} — {p.direccion?.calle} {p.direccion?.altura}, {p.direccion?.ciudad}</p>
-                </div>
-                <StatusBadge estado={p.estado} />
-              </div>
-              <ul className="mt-3 space-y-2 text-sm">
-                {p.detalles?.map((d) => (
-                  <li key={d.id_detalle} className="flex justify-between gap-4 border border-border rounded-md px-3 py-2 bg-background">
-                    <div>
-                      <span className="font-medium">{d.producto?.nombre} x{d.cantidad}</span>
-                      {d.promocion && (
-                        <span className="ml-2 text-[11px] font-bold bg-accent text-white px-2 py-0.5 rounded-pill">
-                          Promo: {d.promocion.nombre}
-                        </span>
-                      )}
-                      {d.opciones?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {d.opciones.map((o) => (
-                            <span key={o.id_detalle_opcional} className="text-xs bg-white border border-border px-2 py-0.5 rounded-pill">
-                              {o.opcional?.nombre} {parseFloat(o.opcional?.precio) > 0 && `+$${parseFloat(o.precio).toFixed(2)}`}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {d.observaciones && <p className="text-xs text-text-soft mt-1">Obs: {d.observaciones}</p>}
-                    </div>
-                    <span className="font-semibold shrink-0">${(d.cantidad*parseFloat(d.precio)).toFixed(2)}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="flex justify-between font-bold border-t border-border pt-3 mt-3">
-                <span>Total</span><span className="text-primary">${parseFloat(p.importe).toFixed(2)}</span>
-              </div>
-              <div className="mt-3">
-                <p className="font-semibold text-sm mb-2">Seguimiento del pedido</p>
-                {p.historial?.length > 0 ? (
-                  <ol className="space-y-1.5">
-                    {[...p.historial]
-                      .sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora))
-                      .map((h) => (
-                        <li key={h.id_historial} className="flex items-center gap-2 text-xs">
-                          <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                          <StatusBadge estado={h.estado} />
-                          <span className="text-text-soft">{new Date(h.fecha_hora).toLocaleString("es-AR")}</span>
-                        </li>
-                      ))}
-                  </ol>
-                ) : (
-                  <p className="text-xs text-text-soft">Sin movimientos registrados.</p>
-                )}
-              </div>
-            </div>
+            <OrderCard key={p.id_pedido} pedido={p} onCambio={fetchPedidos} />
           ))}
         </div>
       )}

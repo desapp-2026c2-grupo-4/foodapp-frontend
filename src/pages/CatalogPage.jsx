@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { getProductos } from "../services/productService.js";
 import { getCategorias } from "../services/categoriaService.js";
 import { getPromociones } from "../services/promocionService.js";
+import { getBanners } from "../services/bannerService.js";
 import ProductCard from "../components/ProductCard.jsx";
 import PromoCard from "../components/PromoCard.jsx";
+import BannerCarousel from "../components/BannerCarousel.jsx";
 
 export default function CatalogPage() {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [promociones, setPromociones] = useState([]);
+  const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -20,11 +23,12 @@ export default function CatalogPage() {
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   useEffect(() => {
-    Promise.all([getProductos(), getCategorias(), getPromociones()])
-      .then(([prods, cats, promos]) => {
+    Promise.all([getProductos(), getCategorias(), getPromociones(), getBanners(true)])
+      .then(([prods, cats, promos, bans]) => {
         setProductos(prods);
         setCategorias(cats);
         setPromociones(promos.filter((p) => p.vigente));
+        setBanners(bans);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -65,6 +69,7 @@ export default function CatalogPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+      {banners.length > 0 && <BannerCarousel banners={banners} />}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl md:text-3xl font-extrabold text-text">Catálogo</h1>
       </div>
