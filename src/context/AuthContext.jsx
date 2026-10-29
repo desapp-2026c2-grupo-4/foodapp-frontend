@@ -28,36 +28,45 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   // Login real contra el backend (email + contraseña)
-  const login = async (email, password) => {
-    const { token: nuevoToken, user: usuario } = await authApi.login({ email, password });
+  const guardarSesion = (nuevoToken, usuario) => {
+    localStorage.setItem(STORAGE_TOKEN, JSON.stringify(nuevoToken));
+    localStorage.setItem(STORAGE_USER, JSON.stringify(usuario));
     setToken(nuevoToken);
     setUser(usuario);
+  };
+
+  const login = async (email, password) => {
+    const { token: nuevoToken, user: usuario } = await authApi.login({ email, password });
+    guardarSesion(nuevoToken, usuario);
     return usuario;
   };
 
   // Registro público: siempre crea CLIENTE (lo garantiza el backend)
   const register = async (data) => {
     const { token: nuevoToken, user: usuario } = await authApi.register(data);
-    setToken(nuevoToken);
-    setUser(usuario);
+    guardarSesion(nuevoToken, usuario);
     return usuario;
   };
 
-  // Accesos rápidos de desarrollo (sin contraseña)
-  const loginAsCliente = (cliente) => {
-    setToken(null);
-    setUser({ ...cliente, rol: "CLIENTE", tipo: "cliente" });
-  };
-
-  const loginAsAdmin = () => {
-    setToken(null);
-    setUser({ id_cliente: 0, id_empleado: 1, nombre: "Admin", apellido: "Principal", email: "admin@altoque.com", rol: "ADMIN", tipo: "admin" });
+  const updateUser = (datos) => {
+    setUser((prev) => ({ ...prev, ...datos }));
   };
 
   const logout = () => {
+    localStorage.removeItem(STORAGE_TOKEN);
+    localStorage.removeItem(STORAGE_USER);
     setUser(null);
     setToken(null);
   };
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null);
+      setToken(null);
+    };
+    window.addEventListener("foodapp:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("foodapp:unauthorized", handleUnauthorized);
+  }, []);
 
   const isAdmin = user?.rol === "ADMIN";
   const isCliente = user?.rol === "CLIENTE";
@@ -65,7 +74,7 @@ export function AuthProvider({ children }) {
   const isStaff = user?.rol === "ADMIN" || user?.rol === "EMPLEADO";
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, loginAsCliente, loginAsAdmin, logout, isAdmin, isCliente, isStaff }}>
+    <AuthContext.Provider value={{ user, token, login, register, updateUser, logout, isAdmin, isCliente, isStaff }}>
       {children}
     </AuthContext.Provider>
   );

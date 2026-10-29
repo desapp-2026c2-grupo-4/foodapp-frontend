@@ -1,11 +1,8 @@
 import { Link } from "react-router-dom";
+import { formatFechaHora } from "../utils/fechas.js";
 
 export default function OrderConfirmation({ pedido, onClose }) {
   if (!pedido) return null;
-  const fecha = new Date(pedido.fecha_hora).toLocaleString("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg border border-border max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-lg">
@@ -24,8 +21,8 @@ export default function OrderConfirmation({ pedido, onClose }) {
               <span className="font-bold text-primary">#{pedido.id_pedido}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-text-soft">Fecha</span>
-              <span className="font-medium">{fecha}</span>
+              <span className="text-text-soft">Fecha y hora</span>
+              <span className="font-medium">{formatFechaHora(pedido.fecha_hora)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-text-soft">Estado</span>

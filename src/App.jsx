@@ -15,6 +15,7 @@ import ProfilePage from "./pages/ProfilePage.jsx";
 import AdminProductsPage from "./pages/AdminProductsPage.jsx";
 import AdminSucursalesPage from "./pages/AdminSucursalesPage.jsx";
 import AdminCategoriasPage from "./pages/AdminCategoriasPage.jsx";
+import AdminMateriasPrimasPage from "./pages/AdminMateriasPrimasPage.jsx";
 import AdminReportesPage from "./pages/AdminReportesPage.jsx";
 import AdminPromocionesPage from "./pages/AdminPromocionesPage.jsx";
 import AdminBannersPage from "./pages/AdminBannersPage.jsx";
@@ -45,12 +46,17 @@ function Navbar() {
         ? [
             { to: "/empleados/pedidos", label: "Pedidos" },
             { to: "/admin/productos", label: "Productos" },
-            { to: "/admin/categorias", label: "Categorías" },
-            { to: "/admin/sucursales", label: "Sucursales" },
+            { to: "/admin/materias-primas", label: "Materias primas" },
             { to: "/admin/reportes", label: "Reportes" },
-            { to: "/admin/promociones", label: "Promociones" },
-            { to: "/admin/banners", label: "Banners" },
-            ...(isAdmin ? [{ to: "/admin/empleados", label: "Empleados" }] : []),
+            ...(isAdmin
+              ? [
+                  { to: "/admin/categorias", label: "Categorías" },
+                  { to: "/admin/sucursales", label: "Sucursales" },
+                  { to: "/admin/promociones", label: "Promociones" },
+                  { to: "/admin/banners", label: "Banners" },
+                  { to: "/admin/empleados", label: "Empleados" },
+                ]
+              : []),
             { to: "/catalogo", label: "Catálogo" },
           ]
         : [
@@ -179,11 +185,12 @@ export default function App() {
               <Route path="/mis-pedidos" element={<RequireCliente><ClientHistoryPage /></RequireCliente>} />
               <Route path="/perfil" element={<RequireCliente><ProfilePage /></RequireCliente>} />
               <Route path="/admin/productos" element={<RequireStaff><AdminProductsPage /></RequireStaff>} />
-              <Route path="/admin/categorias" element={<RequireStaff><AdminCategoriasPage /></RequireStaff>} />
-              <Route path="/admin/sucursales" element={<RequireStaff><AdminSucursalesPage /></RequireStaff>} />
+              <Route path="/admin/categorias" element={<RequireAdmin><AdminCategoriasPage /></RequireAdmin>} />
+              <Route path="/admin/materias-primas" element={<RequireStaff><AdminMateriasPrimasPage /></RequireStaff>} />
+              <Route path="/admin/sucursales" element={<RequireAdmin><AdminSucursalesPage /></RequireAdmin>} />
               <Route path="/admin/reportes" element={<RequireStaff><AdminReportesPage /></RequireStaff>} />
-              <Route path="/admin/promociones" element={<RequireStaff><AdminPromocionesPage /></RequireStaff>} />
-              <Route path="/admin/banners" element={<RequireStaff><AdminBannersPage /></RequireStaff>} />
+              <Route path="/admin/promociones" element={<RequireAdmin><AdminPromocionesPage /></RequireAdmin>} />
+              <Route path="/admin/banners" element={<RequireAdmin><AdminBannersPage /></RequireAdmin>} />
               <Route path="/admin/empleados" element={<RequireAdmin><AdminEmpleadosPage /></RequireAdmin>} />
               <Route path="/empleados/pedidos" element={<RequireStaff><EmployeeOrdersPage /></RequireStaff>} />
               <Route path="/empleados/pedidos/:id" element={<RequireStaff><EmployeeOrderDetailPage /></RequireStaff>} />

@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useCart } from "../context/CartContext.jsx";
 import { apiFetch } from "../services/api.js";
 import { updatePedidoEstado } from "../services/pedidoService.js";
 import StatusBadge from "../components/StatusBadge.jsx";
+import { formatFechaHora } from "../utils/fechas.js";
 
 // Se puede cancelar salvo que esté entregado o ya cancelado (igual que el backend)
 const esCancelable = (estado) => estado !== "Entregado" && estado !== "Cancelado";
 
 function OrderCard({ pedido, onCambio }) {
   const [cancelando, setCancelando] = useState(false);
+  const [repitiendo, setRepitiendo] = useState(false);
   const [msg, setMsg] = useState("");
+  const { addPedido } = useCart();
+  const navigate = useNavigate();
   const p = pedido;
 
   const handleCancelar = async () => {
@@ -27,12 +32,29 @@ function OrderCard({ pedido, onCambio }) {
     }
   };
 
+  const handleRepetir = async () => {
+    setRepitiendo(true);
+    setMsg("");
+    try {
+      const { agregados } = await addPedido(p);
+      if (agregados === 0) {
+        setMsg("Error: no se pudieron agregar los productos de este pedido");
+        return;
+      }
+      navigate("/carrito");
+    } catch (e) {
+      setMsg(`Error: ${e.message}`);
+    } finally {
+      setRepitiendo(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg border border-border p-5">
       <div className="flex justify-between items-start gap-2">
         <div>
           <p className="font-bold">Pedido <span className="text-primary">#{p.id_pedido}</span></p>
-          <p className="text-xs text-text-soft">{new Date(p.fecha_hora).toLocaleString("es-AR")} — {p.direccion?.calle} {p.direccion?.altura}, {p.direccion?.ciudad}</p>
+          <p className="text-xs text-text-soft">{formatFechaHora(p.fecha_hora)} — {p.direccion?.calle} {p.direccion?.altura}, {p.direccion?.ciudad}</p>
         </div>
         <StatusBadge estado={p.estado} />
       </div>
@@ -74,7 +96,7 @@ function OrderCard({ pedido, onCambio }) {
                 <li key={h.id_historial} className="flex items-center gap-2 text-xs">
                   <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
                   <StatusBadge estado={h.estado} />
-                  <span className="text-text-soft">{new Date(h.fecha_hora).toLocaleString("es-AR")}</span>
+                  <span className="text-text-soft">{formatFechaHora(h.fecha_hora)}</span>
                 </li>
               ))}
           </ol>
@@ -82,8 +104,15 @@ function OrderCard({ pedido, onCambio }) {
           <p className="text-xs text-text-soft">Sin movimientos registrados.</p>
         )}
       </div>
-      {esCancelable(p.estado) && (
-        <div className="mt-3">
+      <div className="mt-3 flex flex-wrap gap-3">
+        <button
+          onClick={handleRepetir}
+          disabled={repitiendo}
+          className="w-full sm:w-auto bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-pill font-semibold text-sm transition disabled:opacity-50"
+        >
+          {repitiendo ? "Agregando..." : "Repetir pedido"}
+        </button>
+        {esCancelable(p.estado) && (
           <button
             onClick={handleCancelar}
             disabled={cancelando}
@@ -91,9 +120,9 @@ function OrderCard({ pedido, onCambio }) {
           >
             {cancelando ? "Cancelando..." : "Cancelar pedido"}
           </button>
-          {msg && <p className="text-sm p-2 mt-2 rounded-md bg-red-50 text-danger border border-red-200">{msg}</p>}
-        </div>
-      )}
+        )}
+      </div>
+      {msg && <p className="text-sm p-2 mt-2 rounded-md bg-red-50 text-danger border border-red-200">{msg}</p>}
     </div>
   );
 }

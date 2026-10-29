@@ -1,88 +1,126 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getClientes } from "../services/clienteService.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
+const accesosPorRol = ({ isAdmin, isStaff, isCliente }) => {
+  if (isAdmin) {
+    return [
+      { to: "/empleados/pedidos", label: "Pedidos", detalle: "Todos los pedidos y estados" },
+      { to: "/admin/productos", label: "Productos", detalle: "Catálogo, recetas y disponibilidad" },
+      { to: "/admin/categorias", label: "Categorías", detalle: "Alta, baja y modificación" },
+      { to: "/admin/materias-primas", label: "Materias primas", detalle: "Insumos y stock por sucursal" },
+      { to: "/admin/sucursales", label: "Sucursales", detalle: "Direcciones, horarios y estado" },
+      { to: "/admin/reportes", label: "Reportes", detalle: "Ventas por producto y promoción" },
+      { to: "/admin/promociones", label: "Promociones", detalle: "Combos y descuentos" },
+      { to: "/admin/banners", label: "Banners", detalle: "Contenido del catálogo" },
+      { to: "/admin/empleados", label: "Empleados", detalle: "Usuarios y roles" },
+    ];
+  }
+  if (isStaff) {
+    return [
+      { to: "/empleados/pedidos", label: "Pedidos", detalle: "Pedidos de tu sucursal" },
+      { to: "/admin/productos", label: "Productos", detalle: "Disponibilidad de tu sucursal" },
+      { to: "/admin/materias-primas", label: "Materias primas", detalle: "Stock de tu sucursal" },
+      { to: "/admin/reportes", label: "Reportes", detalle: "Ventas de tu sucursal" },
+    ];
+  }
+  if (isCliente) {
+    return [
+      { to: "/catalogo", label: "Catálogo", detalle: "Productos y promociones" },
+      { to: "/carrito", label: "Carrito", detalle: "Revisá tu pedido" },
+      { to: "/mis-pedidos", label: "Mis pedidos", detalle: "Historial y seguimiento" },
+      { to: "/perfil", label: "Mi perfil", detalle: "Datos y direcciones" },
+    ];
+  }
+  return [];
+};
+
 export default function UserSelectionPage() {
-  const [clientes, setClientes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const { loginAsCliente, loginAsAdmin, user } = useAuth();
+  const { user, logout, isAdmin, isStaff, isCliente } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    getClientes().then(setClientes).catch((e) => setError(e.message)).finally(() => setLoading(false));
-  }, []);
-
-  const handleCliente = (c) => {
-    loginAsCliente(c);
-    navigate("/catalogo");
+  const handleSalir = () => {
+    logout();
+    navigate("/login");
   };
 
-  const handleAdmin = () => {
-    loginAsAdmin();
-    navigate("/empleados/pedidos");
-  };
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <div className="max-w-2xl w-full text-center">
+          <h1 className="text-3xl font-extrabold text-text">Bienvenido a BAJON</h1>
+          <p className="text-text-soft mt-2">
+            Ingresá con tu cuenta para pedir, o registrate como cliente.
+          </p>
 
-  if (loading) return <p className="p-8 text-center text-text-soft">Cargando usuarios...</p>;
-  if (error) return <p className="p-8 text-center text-danger">Error: {error}</p>;
+          <div className="grid md:grid-cols-2 gap-4 mt-8">
+            <button
+              onClick={() => navigate("/login")}
+              className="bg-primary hover:bg-primary-dark text-white rounded-lg p-6 font-semibold text-lg"
+            >
+              Iniciar sesión
+              <span className="block text-sm font-normal opacity-90 mt-1">Clientes, empleados y administradores</span>
+            </button>
+            <button
+              onClick={() => navigate("/registro")}
+              className="bg-white border border-border hover:border-primary rounded-lg p-6 font-semibold text-lg"
+            >
+              Registrarme
+              <span className="block text-sm font-normal text-text-soft mt-1">Crear una cuenta de cliente</span>
+            </button>
+          </div>
+
+          <button onClick={() => navigate("/catalogo")} className="mt-6 text-sm text-primary hover:underline">
+            Ver catálogo sin iniciar sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const accesos = accesosPorRol({ isAdmin, isStaff, isCliente });
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-      <div className="max-w-3xl w-full">
-        <h1 className="text-3xl font-extrabold text-center text-text">Elige tu usuario</h1>
-        <p className="text-center text-text-soft mt-2">Selecciona con qué perfil quieres navegar. Podés cambiarlo desde el menú.</p>
-        {user && (
-          <p className="text-center text-sm mt-3 bg-white border border-border rounded-pill px-4 py-2 mx-auto w-fit">
-            Sesión actual: <span className="font-bold text-primary">{user.nombre} {user.apellido}</span> ({user.rol})
-          </p>
-        )}
+      <div className="max-w-4xl w-full">
+        <div className="bg-white border border-border rounded-lg p-5 flex flex-wrap justify-between items-center gap-4">
+          <div>
+            <p className="text-sm text-text-soft">Sesión actual</p>
+            <h1 className="text-xl font-extrabold">
+              {user.nombre} {user.apellido}
+            </h1>
+            <p className="text-sm text-text-soft">
+              {user.email} · <span className="font-semibold text-primary">{user.rol}</span>
+              {user.id_sucursal ? ` · Sucursal #${user.id_sucursal}` : ""}
+            </p>
+          </div>
+          <button
+            onClick={handleSalir}
+            className="border border-border bg-white px-4 py-2 rounded-pill text-sm font-semibold hover:border-danger hover:text-danger"
+          >
+            Cerrar sesión
+          </button>
+        </div>
 
-        <div className="grid md:grid-cols-2 gap-4 mt-8">
-          {clientes.slice(0,3).map((c) => (
+        <h2 className="text-lg font-extrabold mt-6 mb-3">¿Qué querés hacer?</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {accesos.map((a) => (
             <button
-              key={c.id_cliente}
-              onClick={() => handleCliente(c)}
-              className="bg-white rounded-lg border border-border p-5 text-left hover:border-primary hover:shadow-md transition"
+              key={a.to}
+              onClick={() => navigate(a.to)}
+              className="bg-white border border-border rounded-lg p-5 text-left hover:border-primary hover:shadow-md transition"
             >
-              <div className="w-12 h-12 bg-primary text-white rounded-pill flex items-center justify-center font-bold text-lg">
-                {c.nombre[0]}{c.apellido[0]}
-              </div>
-              <h3 className="font-semibold mt-3">{c.nombre} {c.apellido}</h3>
-              <p className="text-sm text-text-soft">{c.email}</p>
-              <p className="text-xs text-text-soft mt-1">DNI {c.dni} — Cliente #{c.id_cliente}</p>
-              <span className="inline-block mt-3 text-xs font-semibold bg-background border border-border px-3 py-1 rounded-pill">Entrar como cliente → Catálogo</span>
+              <h3 className="font-semibold">{a.label}</h3>
+              <p className="text-sm text-text-soft mt-1">{a.detalle}</p>
+              <span className="inline-block mt-3 text-xs font-semibold bg-background border border-border px-3 py-1 rounded-pill">
+                Ir a {a.label} →
+              </span>
             </button>
           ))}
-
-          <button
-            onClick={handleAdmin}
-            className="bg-white rounded-lg border-2 border-accent p-5 text-left hover:shadow-md transition md:col-span-2"
-          >
-            <div className="w-12 h-12 bg-accent text-white rounded-pill flex items-center justify-center font-bold">A</div>
-            <h3 className="font-semibold mt-3">Administrador</h3>
-            <p className="text-sm text-text-soft">admin@altoque.com — Acceso total</p>
-            <p className="text-xs text-text-soft mt-1">Puede gestionar productos y ver todos los pedidos en /empleados/pedidos</p>
-            <span className="inline-block mt-3 text-xs font-semibold bg-accent text-white px-3 py-1 rounded-pill">Entrar como admin → Pedidos empleados</span>
-          </button>
         </div>
 
-        <div className="bg-white rounded-lg border border-border p-5 mt-6 text-center">
-          <p className="text-sm text-text-soft">¿No tenés cuenta?</p>
-          <button onClick={() => navigate("/registro")} className="mt-2 bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-pill font-semibold text-sm">
-            Registrarme como cliente
-          </button>
-          <p className="text-sm text-text-soft mt-3">
-            ¿Ya tenés cuenta?{" "}
-            <button onClick={() => navigate("/login")} className="text-primary underline font-medium">
-              Iniciá sesión con tu email
-            </button>
-          </p>
-        </div>
-
-        <div className="flex gap-3 justify-center mt-6">
-          <button onClick={() => navigate("/catalogo")} className="text-sm text-primary hover:underline">Ir al catálogo sin seleccionar</button>
-        </div>
+        <button onClick={() => navigate("/catalogo")} className="mt-6 text-sm text-primary hover:underline">
+          Ir al catálogo
+        </button>
       </div>
     </div>
   );
