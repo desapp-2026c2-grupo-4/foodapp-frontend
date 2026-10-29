@@ -7,7 +7,7 @@ import DireccionPicker from "../components/DireccionPicker.jsx";
 import { formatDireccionCorta } from "../utils/geocoding.js";
 
 export default function ProfilePage() {
-  const { user, loginAsCliente } = useAuth();
+  const { user, updateUser } = useAuth();
   const [form, setForm] = useState({ nombre: "", apellido: "", tipo_doc: "", dni: "" });
   const [email, setEmail] = useState("");
   const [passForm, setPassForm] = useState({ passwordActual: "", passwordNueva: "", passwordConfirm: "" });
@@ -65,7 +65,7 @@ export default function ProfilePage() {
     setMsg("");
     try {
       const actualizado = await updateCliente(user.id_cliente, form);
-      loginAsCliente(actualizado);
+      updateUser(actualizado);
       setMsg("Datos actualizados correctamente");
     } catch (err) {
       setMsg(`Error: ${err.message}`);
@@ -78,7 +78,7 @@ export default function ProfilePage() {
   const refrescarDirecciones = async () => {
     const c = await getClienteById(user.id_cliente);
     setDirecciones(c.direcciones || []);
-    loginAsCliente(c);
+    updateUser(c);
   };
 
   const handleAddDireccion = async () => {

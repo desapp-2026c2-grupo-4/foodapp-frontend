@@ -1,6 +1,7 @@
 import { useState } from "react";
 import MapPicker from "./MapPicker.jsx";
 import { reverseGeocode } from "../utils/geocoding.js";
+import useDebouncedForwardGeocode from "../hooks/useDebouncedForwardGeocode.js";
 
 // Selector de dirección con mapa (OpenStreetMap + Leaflet).
 // El usuario ubica el marcador y se autocompletan calle/altura/ciudad/
@@ -18,6 +19,8 @@ export default function DireccionPicker({ onChange }) {
   const [departamento, setDepartamento] = useState("");
   const [resolviendo, setResolviendo] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
+  const { buscar: buscarCoords, cancelar: cancelarCoords, resolviendo: resolviendoFwd, error: errorFwd } =
+    useDebouncedForwardGeocode();
 
   const emitir = (f, pos, p = piso, d = departamento) => {
     onChange(
@@ -28,6 +31,7 @@ export default function DireccionPicker({ onChange }) {
   };
 
   const handlePick = async (lat, lng) => {
+    cancelarCoords();
     const pos = [lat, lng];
     setPosition(pos);
     setGeoMsg("");
@@ -58,20 +62,39 @@ export default function DireccionPicker({ onChange }) {
     const f = { ...fields, [e.target.name]: e.target.value };
     setFields(f);
     emitir(f, position);
+    // Sincronización inversa: dirección tipeada -> coordenadas -> mapa
+    if (!f.calle.trim()) {
+      cancelarCoords();
+      return;
+    }
+    buscarCoords(
+      { calle: f.calle, altura: f.altura, ciudad: f.ciudad, provincia: f.provincia, codigo_postal: f.codigo_postal },
+      (pos) => {
+        if (!pos) {
+          setGeoMsg("No se encontró la dirección; ajustala o tocá el mapa");
+          return;
+        }
+        setGeoMsg("");
+        setPosition(pos);
+        emitir(f, pos);
+      }
+    );
   };
 
   const inputCls = "w-full border border-border rounded-md px-3 py-2 mt-1 text-sm";
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-text-soft">Tocá el mapa para ubicar el marcador (o arrastralo)</p>
+      <p className="text-xs text-text-soft">Tocá el mapa para ubicar el marcador (o arrastralo), o escribí la dirección y se ubicará sola</p>
       <MapPicker position={position} onPick={handlePick} />
-      {position && (
+      {(position || resolviendo || resolviendoFwd) && (
         <p className="text-xs text-text-soft">
-          Lat: {position[0].toFixed(6)}, Lng: {position[1].toFixed(6)}
+          {position && <>Lat: {position[0].toFixed(6)}, Lng: {position[1].toFixed(6)}</>}
           {resolviendo && " — resolviendo dirección..."}
+          {resolviendoFwd && " — ubicando en el mapa..."}
         </p>
       )}
+      {errorFwd && <p className="text-xs text-danger">{errorFwd}</p>}
       {geoMsg && <p className="text-xs text-text-soft">{geoMsg}</p>}
       <div className="grid md:grid-cols-2 gap-3">
         <label className="text-sm">Calle*

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { formatFecha, toInputDate } from "../utils/fechas.js";
 import { getProductos } from "../services/productService.js";
 import {
   getPromociones,
@@ -129,8 +130,8 @@ export default function AdminPromocionesPage() {
       imagen: p.imagen || "",
       tipo: p.tipo,
       valor: p.valor,
-      fecha_inicio: p.fecha_inicio,
-      fecha_fin: p.fecha_fin,
+      fecha_inicio: toInputDate(p.fecha_inicio),
+      fecha_fin: toInputDate(p.fecha_fin),
       activa: p.activa,
     });
     const sel = {};
@@ -150,10 +151,10 @@ export default function AdminPromocionesPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar promoción?")) return;
+    if (!confirm("¿Dar de baja la promoción?")) return;
     try {
       await deletePromocion(id);
-      setMsg("Promoción eliminada");
+      setMsg("Promoción dada de baja");
       fetch();
     } catch (err) {
       setMsg(`Error: ${err.message}`);
@@ -291,7 +292,7 @@ export default function AdminPromocionesPage() {
                 </div>
               </div>
               <p className="text-sm">{tipoLabel(p.tipo)}: <span className="font-semibold">{p.tipo === "PORCENTAJE" ? `${parseFloat(p.valor)}%` : `$${parseFloat(p.valor).toFixed(2)}`}</span></p>
-              <p className="text-sm text-text-soft">{p.fecha_inicio} → {p.fecha_fin}</p>
+              <p className="text-sm text-text-soft">{formatFecha(p.fecha_inicio)} → {formatFecha(p.fecha_fin)}</p>
               <div>
                 <p className="text-xs font-semibold text-text-soft mb-1">Productos</p>
                 <ul className="space-y-0.5 text-xs">
@@ -343,7 +344,7 @@ export default function AdminPromocionesPage() {
                   </span>
                 </td>
                 <td className="px-4 py-2">{tipoLabel(p.tipo)}: <span className="font-semibold">{p.tipo === "PORCENTAJE" ? `${parseFloat(p.valor)}%` : `$${parseFloat(p.valor).toFixed(2)}`}</span></td>
-                <td className="px-4 py-2 text-text-soft whitespace-nowrap">{p.fecha_inicio} → {p.fecha_fin}</td>
+                <td className="px-4 py-2 text-text-soft whitespace-nowrap">{formatFecha(p.fecha_inicio)} → {formatFecha(p.fecha_fin)}</td>
                 <td className="px-4 py-2">
                   <ul className="space-y-0.5 text-xs">
                     {(p.productos || []).map((prod) => (

@@ -112,10 +112,10 @@ export default function AdminEmpleadosPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar empleado?")) return;
+    if (!confirm("¿Dar de baja el empleado? Ya no podrá iniciar sesión.")) return;
     try {
       await deleteEmpleado(id);
-      setMsg("Empleado eliminado");
+      setMsg("Empleado dado de baja");
       fetch();
     } catch (err) {
       setMsg(`Error: ${err.message}`);
