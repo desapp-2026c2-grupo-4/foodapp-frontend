@@ -4,13 +4,10 @@ import { getPedidos, updateDetallePreparado } from "../services/pedidoService.js
 import { getSucursalById, getSucursales } from "../services/sucursalService.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import StatusBadge from "../components/StatusBadge.jsx";
+import { formatFechaHora } from "../utils/fechas.js";
 
 const FILTRO_TODOS = "Todos";
 const ESTADOS_FILTRO = ["Pendiente", "Confirmado", "Preparando", "En camino", "Entregado", "Cancelado"];
-
-function formatFecha(fecha) {
-  return new Date(fecha).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
-}
 
 function formatDireccion(dir) {
   if (!dir) return "—";
@@ -158,7 +155,7 @@ export default function EmployeeOrdersPage() {
               <span className="font-bold text-primary">Pedido #{p.id_pedido}</span>
               <StatusBadge estado={p.estado} />
             </div>
-            <p className="text-xs text-text-soft">{formatFecha(p.fecha_hora)}</p>
+            <p className="text-xs text-text-soft">{formatFechaHora(p.fecha_hora)}</p>
             <div>
               <p className="text-xs font-semibold text-text-soft mb-1">Productos</p>
               <ul className="space-y-1.5 text-sm">
@@ -206,7 +203,7 @@ export default function EmployeeOrdersPage() {
               {filtrados.map((p) => (
                 <tr key={p.id_pedido} className="border-b border-border hover:bg-background/60">
                   <td className="px-4 py-3 font-bold text-primary">#{p.id_pedido}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{formatFecha(p.fecha_hora)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{formatFechaHora(p.fecha_hora)}</td>
                   <td className="px-4 py-3"><StatusBadge estado={p.estado} /></td>
                   <td className="px-4 py-3">
                     <ul className="space-y-1.5">

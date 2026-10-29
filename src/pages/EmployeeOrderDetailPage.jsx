@@ -3,10 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { getPedidoById, updatePedidoEstado } from "../services/pedidoService.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import StatusBadge, { ESTADOS_EMPLEADO } from "../components/StatusBadge.jsx";
-
-function formatFecha(fecha) {
-  return new Date(fecha).toLocaleString("es-AR", { dateStyle: "long", timeStyle: "medium" });
-}
+import { formatFechaHora } from "../utils/fechas.js";
 
 export default function EmployeeOrderDetailPage() {
   const { id } = useParams();
@@ -76,7 +73,7 @@ export default function EmployeeOrderDetailPage() {
         <div className="flex flex-wrap justify-between gap-4 items-start">
           <div>
             <h1 className="text-2xl font-extrabold">Pedido <span className="text-primary">#{pedido.id_pedido}</span></h1>
-            <p className="text-sm text-text-soft">Fecha y hora: {formatFecha(pedido.fecha_hora)}</p>
+            <p className="text-sm text-text-soft">Fecha y hora: {formatFechaHora(pedido.fecha_hora)}</p>
             <p className="text-sm text-text-soft">Cliente: <span className="font-medium text-text">{cli?.nombre} {cli?.apellido}</span> ({cli?.email})</p>
           </div>
           <StatusBadge estado={pedido.estado} />
@@ -176,7 +173,7 @@ export default function EmployeeOrderDetailPage() {
             <ul className="space-y-1 text-xs text-text-soft">
               {[...pedido.historial].sort((a,b)=> new Date(a.fecha_hora)-new Date(b.fecha_hora)).map((h)=> (
                 <li key={h.id_historial} className="flex justify-between border border-border rounded-sm px-3 py-1 bg-background">
-                  <span>{h.estado}</span><span>{new Date(h.fecha_hora).toLocaleString("es-AR")}</span>
+                  <span>{h.estado}</span><span>{formatFechaHora(h.fecha_hora)}</span>
                 </li>
               ))}
             </ul>

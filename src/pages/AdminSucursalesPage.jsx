@@ -9,12 +9,16 @@ import {
 } from "../services/sucursalService.js";
 import MapPicker from "../components/MapPicker.jsx";
 import { reverseGeocode } from "../utils/geocoding.js";
+import { DIAS, crearHorariosVacios, formatHora, formatHorarios } from "../utils/horarios.js";
+import useDebouncedForwardGeocode from "../hooks/useDebouncedForwardGeocode.js";
 
-const emptyForm = {
+const CAMPOS_DIRECCION = ["calle", "altura", "ciudad", "provincia", "codigo_postal"];
+
+const formVacio = () => ({
   nombre: "",
   estado: "activa",
   telefono: "",
-  horario: "",
+  horarios: crearHorariosVacios(),
   calle: "",
   altura: "",
   ciudad: "",
@@ -22,19 +26,22 @@ const emptyForm = {
   codigo_postal: "",
   latitud: "",
   longitud: "",
-};
+  radio_km: "2",
+});
 
 export default function AdminSucursalesPage() {
   const { isAdmin } = useAuth();
   const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(formVacio);
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState("");
   const [listaAbierta, setListaAbierta] = useState(false);
   const [resolviendo, setResolviendo] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
+  const { buscar: buscarCoords, cancelar: cancelarCoords, resolviendo: resolviendoFwd, error: errorFwd } =
+    useDebouncedForwardGeocode();
 
   const latNum = parseFloat(form.latitud);
   const lngNum = parseFloat(form.longitud);
@@ -44,6 +51,7 @@ export default function AdminSucursalesPage() {
       : null;
 
   const handlePick = async (lat, lng) => {
+    cancelarCoords();
     setGeoMsg("");
     setResolviendo(true);
     try {
@@ -95,13 +103,48 @@ export default function AdminSucursalesPage() {
   if (loading) return <p className="p-8 text-center text-text-soft">Cargando sucursales...</p>;
   if (error) return <p className="p-8 text-center text-danger">{error}</p>;
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const next = { ...form, [name]: value };
+    setForm(next);
+    // Sincronización inversa: dirección tipeada -> coordenadas -> mapa
+    if (!CAMPOS_DIRECCION.includes(name)) return;
+    if (!next.calle.trim()) {
+      cancelarCoords();
+      return;
+    }
+    buscarCoords(
+      { calle: next.calle, altura: next.altura, ciudad: next.ciudad, provincia: next.provincia, codigo_postal: next.codigo_postal },
+      (pos) => {
+        if (!pos) {
+          setGeoMsg("No se encontró la dirección; ajustala o tocá el mapa");
+          return;
+        }
+        setGeoMsg("");
+        setForm((f) => ({ ...f, latitud: pos[0], longitud: pos[1] }));
+      }
+    );
+  };
+
+  const handleHorarioChange = (dia, campo, valor) => {
+    setForm((f) => ({
+      ...f,
+      horarios: {
+        ...f.horarios,
+        [dia]: { ...f.horarios[dia], [campo]: valor },
+      },
+    }));
+  };
 
   const toPayload = () => ({
     nombre: form.nombre,
     estado: form.estado || undefined,
     telefono: form.telefono || undefined,
-    horario: form.horario || undefined,
+    horarios: DIAS.filter((d) => form.horarios[d.id].abierto).map((d) => ({
+      dia_semana: d.id,
+      hora_apertura: form.horarios[d.id].apertura,
+      hora_cierre: form.horarios[d.id].cierre,
+    })),
     calle: form.calle,
     altura: form.altura,
     ciudad: form.ciudad,
@@ -109,6 +152,7 @@ export default function AdminSucursalesPage() {
     codigo_postal: form.codigo_postal || undefined,
     latitud: form.latitud === "" ? undefined : parseFloat(form.latitud),
     longitud: form.longitud === "" ? undefined : parseFloat(form.longitud),
+    radio_km: parseFloat(form.radio_km),
   });
 
   const handleSubmit = async (e) => {
@@ -116,6 +160,20 @@ export default function AdminSucursalesPage() {
     setMsg("");
     if (!form.nombre || !form.calle || !form.altura || !form.ciudad || !form.provincia) {
       return setMsg("Error: nombre, calle, altura, ciudad y provincia son obligatorios");
+    }
+    const radioKm = parseFloat(form.radio_km);
+    if (!Number.isFinite(radioKm) || radioKm < 0.1 || radioKm > 100) {
+      return setMsg("Error: el radio de cobertura debe estar entre 0.1 y 100 km");
+    }
+    const diasAbiertos = DIAS.filter((d) => form.horarios[d.id].abierto);
+    for (const d of diasAbiertos) {
+      const h = form.horarios[d.id];
+      if (!h.apertura || !h.cierre) {
+        return setMsg(`Error: completá apertura y cierre para ${d.nombre}`);
+      }
+      if (h.apertura === h.cierre) {
+        return setMsg(`Error: apertura y cierre no pueden ser iguales (${d.nombre})`);
+      }
     }
     try {
       if (editingId) {
@@ -125,7 +183,7 @@ export default function AdminSucursalesPage() {
         await createSucursal(toPayload());
         setMsg("Sucursal dada de alta");
       }
-      setForm(emptyForm);
+      setForm(formVacio());
       setEditingId(null);
       fetch();
     } catch (err) {
@@ -134,12 +192,20 @@ export default function AdminSucursalesPage() {
   };
 
   const handleEdit = (s) => {
+    const horarios = crearHorariosVacios();
+    for (const h of s.horarios || []) {
+      horarios[h.dia_semana] = {
+        abierto: true,
+        apertura: formatHora(h.hora_apertura),
+        cierre: formatHora(h.hora_cierre),
+      };
+    }
     setEditingId(s.id_sucursal);
     setForm({
       nombre: s.nombre || "",
       estado: s.estado || "activa",
       telefono: s.telefono || "",
-      horario: s.horario || "",
+      horarios,
       calle: s.calle || "",
       altura: s.altura || "",
       ciudad: s.ciudad || "",
@@ -147,15 +213,16 @@ export default function AdminSucursalesPage() {
       codigo_postal: s.codigo_postal || "",
       latitud: s.latitud ?? "",
       longitud: s.longitud ?? "",
+      radio_km: s.radio_km ?? "2",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar sucursal?")) return;
+    if (!confirm("¿Dar de baja la sucursal?")) return;
     try {
       await deleteSucursal(id);
-      setMsg("Sucursal eliminada");
+      setMsg("Sucursal dada de baja");
       fetch();
     } catch (err) {
       setMsg(`Error: ${err.message}`);
@@ -185,26 +252,65 @@ export default function AdminSucursalesPage() {
             </select>
           </label>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="text-sm">
-            Teléfono
-            <input name="telefono" value={form.telefono} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" />
-          </label>
-          <label className="text-sm">
-            Horario
-            <input name="horario" value={form.horario} onChange={handleChange} placeholder="10:00-23:00" className="w-full border border-border rounded-md px-3 py-2 mt-1" />
-          </label>
+        <label className="text-sm block">
+          Teléfono
+          <input name="telefono" value={form.telefono} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" />
+        </label>
+
+        <div className="border-t border-border pt-4 space-y-3">
+          <div>
+            <p className="font-semibold text-sm">Horarios de atención</p>
+            <p className="text-xs text-text-soft">
+              Sin días cargados la sucursal se considera abierta siempre. Para cerrarla, usá Estado = inactiva.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {DIAS.map((d) => {
+              const h = form.horarios[d.id];
+              return (
+                <div key={d.id} className="flex flex-wrap items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2 w-32">
+                    <input
+                      type="checkbox"
+                      checked={h.abierto}
+                      onChange={(e) => handleHorarioChange(d.id, "abierto", e.target.checked)}
+                      className="accent-primary"
+                    />
+                    {d.nombre}
+                  </label>
+                  <input
+                    type="time"
+                    value={h.apertura}
+                    onChange={(e) => handleHorarioChange(d.id, "apertura", e.target.value)}
+                    disabled={!h.abierto}
+                    className="border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                  />
+                  <span className="text-xs text-text-soft">a</span>
+                  <input
+                    type="time"
+                    value={h.cierre}
+                    onChange={(e) => handleHorarioChange(d.id, "cierre", e.target.value)}
+                    disabled={!h.abierto}
+                    className="border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                  />
+                  {!h.abierto && <span className="text-xs text-text-soft">Cerrado</span>}
+                </div>
+              );
+            })}
+          </div>
         </div>
         <div className="border-t border-border pt-4 space-y-3">
           <p className="font-semibold text-sm">Ubicación en mapa</p>
-          <p className="text-xs text-text-soft">Tocá el mapa para ubicar el marcador (o arrastralo); se autocompletan calle, altura, ciudad, provincia y código postal</p>
+          <p className="text-xs text-text-soft">Tocá el mapa para ubicar el marcador (o arrastralo); se autocompletan calle, altura, ciudad, provincia y código postal. También podés escribir la dirección y el mapa se ubica solo</p>
           <MapPicker position={mapPosition} onPick={handlePick} />
-          {(mapPosition || resolviendo) && (
+          {(mapPosition || resolviendo || resolviendoFwd) && (
             <p className="text-xs text-text-soft">
               {mapPosition && <>Lat: {mapPosition[0].toFixed(6)}, Lng: {mapPosition[1].toFixed(6)}</>}
               {resolviendo && " — resolviendo dirección..."}
+              {resolviendoFwd && " — ubicando en el mapa..."}
             </p>
           )}
+          {errorFwd && <p className="text-xs text-danger">{errorFwd}</p>}
           {geoMsg && <p className="text-xs text-text-soft">{geoMsg}</p>}
         </div>
         <div className="grid md:grid-cols-2 gap-4">
@@ -231,7 +337,7 @@ export default function AdminSucursalesPage() {
             <input name="codigo_postal" value={form.codigo_postal} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" />
           </label>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           <label className="text-sm">
             Latitud
             <input name="latitud" type="number" step="any" value={form.latitud} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" />
@@ -239,6 +345,10 @@ export default function AdminSucursalesPage() {
           <label className="text-sm">
             Longitud
             <input name="longitud" type="number" step="any" value={form.longitud} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" />
+          </label>
+          <label className="text-sm">
+            Radio de cobertura (km)*
+            <input name="radio_km" type="number" min="0.1" max="100" step="0.1" value={form.radio_km} onChange={handleChange} required className="w-full border border-border rounded-md px-3 py-2 mt-1" />
           </label>
         </div>
         <div className="flex gap-3">
@@ -250,7 +360,7 @@ export default function AdminSucursalesPage() {
               type="button"
               onClick={() => {
                 setEditingId(null);
-                setForm(emptyForm);
+                setForm(formVacio());
               }}
               className="border border-border bg-white px-6 py-2 rounded-pill"
             >
@@ -291,13 +401,21 @@ export default function AdminSucursalesPage() {
                   <span className="font-bold text-primary text-sm">#{s.id_sucursal}</span>
                   <p className="font-semibold">{s.nombre}</p>
                 </div>
-                <span className="text-xs text-text-soft shrink-0">{s.estado}</span>
+                <div className="text-right shrink-0 space-y-1">
+                  <span className="block text-xs text-text-soft">{s.estado}</span>
+                  <span className={`inline-block text-[11px] px-2 py-0.5 rounded-pill ${s.abierta_ahora ? "bg-green-50 text-success" : "bg-background text-text-soft"}`}>
+                    {s.abierta_ahora ? "Abierta ahora" : "Cerrada ahora"}
+                  </span>
+                </div>
               </div>
               <p className="text-sm text-text-soft">
                 {s.calle} {s.altura}, {s.ciudad} ({s.provincia}){s.codigo_postal ? ` · CP ${s.codigo_postal}` : ""}
               </p>
               <p className="text-sm text-text-soft">
-                Tel: {s.telefono || "—"} · Horario: {s.horario || "—"}
+                Tel: {s.telefono || "—"} · {formatHorarios(s.horarios)}
+              </p>
+              <p className="text-sm text-text-soft">
+                Radio de cobertura: {parseFloat(s.radio_km ?? 2)} km
               </p>
               <div className="flex gap-2 border-t border-border pt-3">
                 <button onClick={() => handleEdit(s)} className="flex-1 text-xs border border-border px-3 py-1.5 rounded-pill hover:border-primary">
@@ -324,7 +442,8 @@ export default function AdminSucursalesPage() {
                 <th className="text-left px-4 py-2">Nombre</th>
                 <th className="text-left px-4 py-2">Estado</th>
                 <th className="text-left px-4 py-2">Dirección</th>
-                <th className="text-left px-4 py-2">Tel / Horario</th>
+                <th className="text-left px-4 py-2">Tel / Horarios</th>
+                <th className="text-left px-4 py-2">Radio</th>
                 <th className="text-center px-4 py-2">Acciones</th>
               </tr>
             </thead>
@@ -333,13 +452,19 @@ export default function AdminSucursalesPage() {
                 <tr key={s.id_sucursal} className="border-b border-border align-top">
                   <td className="px-4 py-2 font-bold text-primary">#{s.id_sucursal}</td>
                   <td className="px-4 py-2">{s.nombre}</td>
-                  <td className="px-4 py-2">{s.estado}</td>
+                  <td className="px-4 py-2">
+                    <div>{s.estado}</div>
+                    <span className={`inline-block mt-1 text-[11px] px-2 py-0.5 rounded-pill ${s.abierta_ahora ? "bg-green-50 text-success" : "bg-background text-text-soft"}`}>
+                      {s.abierta_ahora ? "Abierta ahora" : "Cerrada ahora"}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">
                     {s.calle} {s.altura}, {s.ciudad} ({s.provincia}){s.codigo_postal ? ` · CP ${s.codigo_postal}` : ""}
                   </td>
                   <td className="px-4 py-2 text-text-soft">
-                    {s.telefono || "—"} / {s.horario || "—"}
+                    {s.telefono || "—"} / {formatHorarios(s.horarios)}
                   </td>
+                  <td className="px-4 py-2 text-text-soft">{parseFloat(s.radio_km ?? 2)} km</td>
                   <td className="px-4 py-2 text-center space-x-2 whitespace-nowrap">
                     <button onClick={() => handleEdit(s)} className="text-xs border border-border px-3 py-1 rounded-pill hover:border-primary">
                       Modificar
@@ -352,7 +477,7 @@ export default function AdminSucursalesPage() {
               ))}
               {sucursales.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-text-soft">
+                  <td colSpan={7} className="p-8 text-center text-text-soft">
                     No hay sucursales
                   </td>
                 </tr>

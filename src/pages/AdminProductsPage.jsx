@@ -3,32 +3,25 @@ import { apiFetch } from "../services/api.js";
 import { getProductos } from "../services/productService.js";
 import { getOpcionalesByProducto, createOpcional, updateOpcional, deleteOpcional } from "../services/opcionalService.js";
 import { getCategorias } from "../services/categoriaService.js";
-import { getSucursalById } from "../services/sucursalService.js";
-import { getStockSucursal, agregarStock } from "../services/stockService.js";
+import { getMateriasPrimas } from "../services/materiaPrimaService.js";
+import { getSucursales } from "../services/sucursalService.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { Link } from "react-router-dom";
 
-function VistaStockEmpleado({ idSucursal }) {
-  const [filas, setFilas] = useState([]);
-  const [sucursal, setSucursal] = useState(null);
+function VistaProductosEmpleado({ idSucursal }) {
+  const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [cantidades, setCantidades] = useState({});
-  const [msg, setMsg] = useState("");
   const [listaAbierta, setListaAbierta] = useState(false);
 
-  const cargar = async () => {
+  useEffect(() => {
+    if (!idSucursal) { setLoading(false); return; }
     setLoading(true);
-    try {
-      const [stock, suc] = await Promise.all([
-        getStockSucursal(idSucursal),
-        getSucursalById(idSucursal),
-      ]);
-      setFilas(stock);
-      setSucursal(suc);
-    } catch (e) { setError(e.message); } finally { setLoading(false); }
-  };
-  useEffect(() => { if (idSucursal) cargar(); else setLoading(false); }, [idSucursal]);
+    getProductos(idSucursal)
+      .then(setProductos)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [idSucursal]);
 
   if (!idSucursal) {
     return (
@@ -37,45 +30,32 @@ function VistaStockEmpleado({ idSucursal }) {
       </div>
     );
   }
-  if (loading) return <p className="p-8 text-center text-text-soft">Cargando stock...</p>;
+  if (loading) return <p className="p-8 text-center text-text-soft">Cargando productos...</p>;
   if (error) return <p className="p-8 text-center text-danger">{error}</p>;
 
-  const handleAgregar = async (id_producto) => {
-    const cantidad = parseInt(cantidades[id_producto], 10);
-    if (!Number.isInteger(cantidad) || cantidad < 1) {
-      setMsg("Error: ingresá una cantidad entera mayor a 0");
-      return;
-    }
-    try {
-      const r = await agregarStock({ id_sucursal: idSucursal, id_producto, cantidad });
-      setMsg(`Stock actualizado: ${r.nombre} → ${r.stock} unidades`);
-      setCantidades((prev) => ({ ...prev, [id_producto]: "" }));
-      setFilas(await getStockSucursal(idSucursal));
-    } catch (err) { setMsg(`Error: ${err.message}`); }
-  };
+  const receta = (p) =>
+    (p.materiasPrimas || []).length > 0 ? (
+      <div className="flex flex-wrap gap-1">
+        {p.materiasPrimas.map((m) => (
+          <span key={m.id_materia_prima} className="text-[11px] bg-background border border-border px-2 py-0.5 rounded-pill">
+            {m.nombre}{m.ProductoMateriaPrima ? ` ×${m.ProductoMateriaPrima.cantidad}` : ""}
+          </span>
+        ))}
+      </div>
+    ) : (
+      <span className="text-xs text-danger">Sin receta (no disponible)</span>
+    );
 
-  const controlAgregar = (p) => (
-    <div className="flex gap-2 items-center">
-      <input
-        type="number"
-        min="1"
-        step="1"
-        placeholder="Cant."
-        value={cantidades[p.id_producto] ?? ""}
-        onChange={(e) => setCantidades((prev) => ({ ...prev, [p.id_producto]: e.target.value }))}
-        className="w-20 border border-border rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary"
-      />
-      <button onClick={() => handleAgregar(p.id_producto)} className="text-xs bg-success text-white px-3 py-1.5 rounded-pill hover:brightness-110 shrink-0">Agregar</button>
-    </div>
+  const disponible = (p) => (
+    <span className={`font-bold ${(p.stock ?? 0) > 0 ? "text-success" : "text-danger"}`}>{p.stock ?? 0}</span>
   );
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold">Stock — {sucursal?.nombre}</h1>
-        <p className="text-sm text-text-soft">Productos y stock de tu sucursal. El stock disminuye solo con los pedidos.</p>
+        <h1 className="text-2xl font-extrabold">Productos y disponibilidad</h1>
+        <p className="text-sm text-text-soft">Cantidad disponible estimada según el stock de materias primas de tu sucursal. Para cargar stock, andá a <Link to="/admin/materias-primas" className="text-primary underline">Materias primas</Link>.</p>
       </div>
-      {msg && <p className={`text-sm p-2 rounded-md border ${msg.startsWith("Error") ? "bg-red-50 text-danger border-red-200" : "bg-green-50 text-success border-green-200"}`}>{msg}</p>}
 
       <div className="bg-white rounded-lg border border-border overflow-hidden">
         <button
@@ -83,7 +63,7 @@ function VistaStockEmpleado({ idSucursal }) {
           aria-expanded={listaAbierta}
           className="w-full flex justify-between items-center px-4 py-3 md:cursor-default"
         >
-          <span className="font-bold text-sm">Productos ({filas.length})</span>
+          <span className="font-bold text-sm">Productos ({productos.length})</span>
           <svg
             className={`w-4 h-4 md:hidden transition-transform ${listaAbierta ? "rotate-180" : ""}`}
             viewBox="0 0 20 20"
@@ -96,38 +76,40 @@ function VistaStockEmpleado({ idSucursal }) {
 
         {/* Tarjetas apiladas en una columna (mobile) */}
         <div className={`${listaAbierta ? "block" : "hidden"} md:hidden space-y-3 p-4 border-t border-border`}>
-          {filas.map((p) => (
+          {productos.map((p) => (
             <div key={p.id_producto} className="rounded-md border border-border p-4 space-y-2 bg-white">
               <div className="flex justify-between items-start gap-2">
                 <div>
                   <span className="font-bold text-primary text-sm">#{p.id_producto}</span>
                   <p className="font-semibold">{p.nombre}</p>
                 </div>
-                <span className={`text-sm font-bold shrink-0 ${p.stock > 0 ? "text-success" : "text-danger"}`}>Stock: {p.stock}</span>
+                <span className="text-xs text-text-soft shrink-0">{p.estado}</span>
               </div>
-              <p className="text-sm text-text-soft">${parseFloat(p.precio).toFixed(2)} · {p.estado}</p>
-              {controlAgregar(p)}
+              <p className="text-sm text-text-soft">${parseFloat(p.precio).toFixed(2)} · Disponible: {disponible(p)}</p>
+              <div>
+                <p className="text-xs font-semibold text-text-soft mb-1">Receta</p>
+                {receta(p)}
+              </div>
             </div>
           ))}
-          {filas.length === 0 && (
-            <p className="text-sm text-text-soft text-center">No hay productos</p>
-          )}
+          {productos.length === 0 && <p className="text-sm text-text-soft text-center">No hay productos</p>}
         </div>
 
         {/* Tabla (desktop) */}
         <div className="hidden md:block">
         <table className="w-full text-sm">
           <thead className="bg-background border-b border-border text-text-soft">
-            <tr><th className="text-left px-4 py-2">#</th><th className="text-left px-4 py-2">Producto</th><th className="text-left px-4 py-2">Precio</th><th className="text-left px-4 py-2">Stock</th><th className="text-center px-4 py-2">Agregar stock</th></tr>
+            <tr><th className="text-left px-4 py-2">#</th><th className="text-left px-4 py-2">Producto</th><th className="text-left px-4 py-2">Precio</th><th className="text-left px-4 py-2">Estado</th><th className="text-left px-4 py-2">Receta</th><th className="text-left px-4 py-2">Disponible</th></tr>
           </thead>
           <tbody>
-            {filas.map((p) => (
+            {productos.map((p) => (
               <tr key={p.id_producto} className="border-b border-border align-top">
                 <td className="px-4 py-2 font-bold text-primary">#{p.id_producto}</td>
                 <td className="px-4 py-2">{p.nombre}</td>
                 <td className="px-4 py-2">${parseFloat(p.precio).toFixed(2)}</td>
-                <td className={`px-4 py-2 font-bold ${p.stock > 0 ? "text-success" : "text-danger"}`}>{p.stock}</td>
-                <td className="px-4 py-2"><div className="flex justify-center">{controlAgregar(p)}</div></td>
+                <td className="px-4 py-2">{p.estado}</td>
+                <td className="px-4 py-2">{receta(p)}</td>
+                <td className="px-4 py-2">{disponible(p)}</td>
               </tr>
             ))}
           </tbody>
@@ -146,8 +128,15 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState({ nombre: "", descripcion: "", precio: "", imagen: "", estado: "disponible" });
   const [formCategorias, setFormCategorias] = useState([]);
   const [todasCategorias, setTodasCategorias] = useState([]);
+  const [formReceta, setFormReceta] = useState([]); // [{id_materia_prima, cantidad}]
+  const [todasMaterias, setTodasMaterias] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState("");
+
+  // Disponibilidad derivada por sucursal (sección aparte)
+  const [sucursales, setSucursales] = useState([]);
+  const [sucursalVista, setSucursalVista] = useState("");
+  const [disponibilidad, setDisponibilidad] = useState([]);
 
   // Opcionales admin
   const [opciones, setOpciones] = useState({}); // {id_producto: [opcionales]}
@@ -159,6 +148,7 @@ export default function AdminProductsPage() {
   const resetForm = () => {
     setForm({ nombre: "", descripcion: "", precio: "", imagen: "", estado: "disponible" });
     setFormCategorias([]);
+    setFormReceta([]);
     setEditingId(null);
   };
 
@@ -168,12 +158,25 @@ export default function AdminProductsPage() {
     );
   };
 
-  const fetch = async () => {
+  const toggleFormMateria = (id) => {
+    setFormReceta((prev) =>
+      prev.some((r) => r.id_materia_prima === id)
+        ? prev.filter((r) => r.id_materia_prima !== id)
+        : [...prev, { id_materia_prima: id, cantidad: "1" }]
+    );
+  };
+
+  const setRecetaCantidad = (id, cantidad) => {
+    setFormReceta((prev) => prev.map((r) => (r.id_materia_prima === id ? { ...r, cantidad } : r)));
+  };
+
+  const cargar = async () => {
     setLoading(true);
     try {
-      const [prods, cats] = await Promise.all([getProductos(), getCategorias()]);
+      const [prods, cats, materias] = await Promise.all([getProductos(), getCategorias(), getMateriasPrimas()]);
       setProductos(prods);
       setTodasCategorias(cats);
+      setTodasMaterias(materias);
       // cargar opcionales por producto
       const map = {};
       for (const p of prods) {
@@ -182,10 +185,23 @@ export default function AdminProductsPage() {
       setOpciones(map);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
-  useEffect(() => { if (isAdmin) fetch(); }, [isAdmin]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    cargar();
+    getSucursales().then(setSucursales).catch((e) => setError(e.message));
+  }, [isAdmin]);
+
+  // Disponibilidad por sucursal (independiente de la lista de productos).
+  // Se refresca también cuando cambian los productos (ej. se edita una receta).
+  useEffect(() => {
+    if (!isAdmin || !sucursalVista) { setDisponibilidad([]); return; }
+    getProductos(sucursalVista)
+      .then(setDisponibilidad)
+      .catch((e) => setError(e.message));
+  }, [isAdmin, sucursalVista, productos]);
 
   if (!isStaff) return <p className="p-8 text-center text-danger">Acceso denegado — Solo personal autorizado puede ver esta página. <Link to="/" className="text-primary underline">Elegir usuario</Link></p>;
-  if (!isAdmin) return <VistaStockEmpleado idSucursal={user?.id_sucursal} />;
+  if (!isAdmin) return <VistaProductosEmpleado idSucursal={user?.id_sucursal} />;
   if (loading) return <p className="p-8 text-center text-text-soft">Cargando productos...</p>;
   if (error) return <p className="p-8 text-center text-danger">{error}</p>;
 
@@ -193,7 +209,10 @@ export default function AdminProductsPage() {
     e.preventDefault();
     setMsg("");
     try {
-      const payload = { ...form, precio: parseFloat(form.precio), categorias: formCategorias };
+      const receta = formReceta
+        .map((r) => ({ id_materia_prima: Number(r.id_materia_prima), cantidad: parseInt(r.cantidad, 10) }))
+        .filter((r) => Number.isInteger(r.cantidad) && r.cantidad >= 1);
+      const payload = { ...form, precio: parseFloat(form.precio), categorias: formCategorias, materiasPrimas: receta };
       if (editingId) {
         await apiFetch(`/productos/${editingId}`, { method: "PUT", body: JSON.stringify(payload) });
         setMsg("Producto modificado");
@@ -202,7 +221,7 @@ export default function AdminProductsPage() {
         setMsg("Producto dado de alta");
       }
       resetForm();
-      fetch();
+      cargar();
     } catch (err) { setMsg(`Error: ${err.message}`); }
   };
 
@@ -210,15 +229,21 @@ export default function AdminProductsPage() {
     setEditingId(p.id_producto);
     setForm({ nombre: p.nombre, descripcion: p.descripcion || "", precio: p.precio, imagen: p.imagen || "", estado: p.estado });
     setFormCategorias((p.categorias || []).map((c) => c.id_categoria));
+    setFormReceta(
+      (p.materiasPrimas || []).map((m) => ({
+        id_materia_prima: m.id_materia_prima,
+        cantidad: String(m.ProductoMateriaPrima?.cantidad ?? 1),
+      }))
+    );
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar producto?")) return;
+    if (!confirm("¿Dar de baja el producto?")) return;
     try {
       await apiFetch(`/productos/${id}`, { method: "DELETE" });
-      setMsg("Producto eliminado");
-      fetch();
+      setMsg("Producto dado de baja");
+      cargar();
     } catch (err) { setMsg(`Error: ${err.message}`); }
   };
 
@@ -237,7 +262,7 @@ export default function AdminProductsPage() {
       }
       setOpcForm({ id_producto: "", nombre: "", descripcion: "", precio: "", estado: "disponible" });
       setEditingOpcId(null);
-      fetch();
+      cargar();
     } catch (err) { setOpcMsg(`Error: ${err.message}`); }
   };
 
@@ -247,8 +272,8 @@ export default function AdminProductsPage() {
   };
 
   const handleOpcDelete = async (id) => {
-    if (!confirm("¿Eliminar opcional?")) return;
-    try { await deleteOpcional(id); setOpcMsg("Opcional eliminado"); fetch(); } catch (err) { setOpcMsg(`Error: ${err.message}`); }
+    if (!confirm("¿Dar de baja el opcional?")) return;
+    try { await deleteOpcional(id); setOpcMsg("Opcional dado de baja"); cargar(); } catch (err) { setOpcMsg(`Error: ${err.message}`); }
   };
 
   return (
@@ -295,6 +320,45 @@ export default function AdminProductsPage() {
                   {c.nombre}
                 </label>
               ))}
+            </div>
+          )}
+        </div>
+        <div className="bg-background rounded-md p-3 border border-border">
+          <p className="text-sm font-semibold mb-2">Materias primas (receta)</p>
+          <p className="text-xs text-text-soft mb-2">Cantidad de cada insumo por unidad de producto. El stock del producto se calcula a partir de estas.</p>
+          {todasMaterias.length === 0 ? (
+            <p className="text-xs text-text-soft">No hay materias primas. <Link to="/admin/materias-primas" className="text-primary underline">Crear una</Link></p>
+          ) : (
+            <div className="space-y-2">
+              {todasMaterias.map((m) => {
+                const seleccionada = formReceta.find((r) => r.id_materia_prima === m.id_materia_prima);
+                return (
+                  <div key={m.id_materia_prima} className="flex items-center gap-3 bg-white border border-border rounded-md px-3 py-2">
+                    <label className="flex items-center gap-2 text-sm flex-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!seleccionada}
+                        onChange={() => toggleFormMateria(m.id_materia_prima)}
+                        className="h-4 w-4 rounded-sm border-border text-primary focus:ring-primary"
+                      />
+                      {m.nombre}
+                    </label>
+                    {seleccionada && (
+                      <label className="flex items-center gap-2 text-xs text-text-soft">
+                        Cantidad
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={seleccionada.cantidad}
+                          onChange={(e) => setRecetaCantidad(m.id_materia_prima, e.target.value)}
+                          className="w-20 border border-border rounded-md px-2 py-1 text-sm"
+                        />
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -347,6 +411,20 @@ export default function AdminProductsPage() {
                 )}
               </div>
               <div>
+                <p className="text-xs font-semibold text-text-soft mb-1">Receta</p>
+                {(p.materiasPrimas || []).length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {p.materiasPrimas.map((m) => (
+                      <span key={m.id_materia_prima} className="text-[11px] bg-background border border-border px-2 py-0.5 rounded-pill">
+                        {m.nombre}{m.ProductoMateriaPrima ? ` ×${m.ProductoMateriaPrima.cantidad}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-danger">Sin receta (no disponible)</span>
+                )}
+              </div>
+              <div>
                 <p className="text-xs font-semibold text-text-soft mb-1">Opcionales</p>
                 <ul className="space-y-1">
                   {(opciones[p.id_producto] || []).map((o) => (
@@ -375,7 +453,7 @@ export default function AdminProductsPage() {
         <div className="hidden md:block">
         <table className="w-full text-sm">
           <thead className="bg-background border-b border-border text-text-soft">
-            <tr><th className="text-left px-4 py-2">#</th><th className="text-left px-4 py-2">Nombre</th><th className="text-left px-4 py-2">Precio</th><th className="text-left px-4 py-2">Estado</th><th className="text-left px-4 py-2">Categorías</th><th className="text-left px-4 py-2">Opcionales</th><th className="text-center px-4 py-2">Acciones</th></tr>
+            <tr><th className="text-left px-4 py-2">#</th><th className="text-left px-4 py-2">Nombre</th><th className="text-left px-4 py-2">Precio</th><th className="text-left px-4 py-2">Estado</th><th className="text-left px-4 py-2">Categorías</th><th className="text-left px-4 py-2">Receta</th><th className="text-left px-4 py-2">Opcionales</th><th className="text-center px-4 py-2">Acciones</th></tr>
           </thead>
           <tbody>
             {productos.map((p)=> (
@@ -393,6 +471,19 @@ export default function AdminProductsPage() {
                     </div>
                   ) : (
                     <span className="text-xs text-text-soft">Sin categorías</span>
+                  )}
+                </td>
+                <td className="px-4 py-2">
+                  {(p.materiasPrimas || []).length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {p.materiasPrimas.map((m) => (
+                        <span key={m.id_materia_prima} className="text-[11px] bg-background border border-border px-2 py-0.5 rounded-pill">
+                          {m.nombre}{m.ProductoMateriaPrima ? ` ×${m.ProductoMateriaPrima.cantidad}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-danger">Sin receta</span>
                   )}
                 </td>
                 <td className="px-4 py-2">
@@ -417,6 +508,57 @@ export default function AdminProductsPage() {
           </tbody>
         </table>
         </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-border p-5 space-y-4">
+        <div>
+          <h3 className="font-semibold">Disponibilidad por sucursal</h3>
+          <p className="text-xs text-text-soft">El stock se deriva de la receta. Cargá insumos en <Link to="/admin/materias-primas" className="text-primary underline">Materias primas</Link>.</p>
+        </div>
+        <label className="text-sm flex items-center gap-2">
+          Sucursal
+          <select value={sucursalVista} onChange={(e)=>setSucursalVista(e.target.value)} className="border border-border rounded-md px-3 py-1.5">
+            <option value="">— sin sucursal —</option>
+            {sucursales.map((s)=><option key={s.id_sucursal} value={s.id_sucursal}>{s.nombre}</option>)}
+          </select>
+        </label>
+        {!sucursalVista ? (
+          <p className="text-sm text-text-soft">Elegí una sucursal para ver la disponibilidad.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-background border-b border-border text-text-soft">
+                <tr>
+                  <th className="text-left px-4 py-2">#</th>
+                  <th className="text-left px-4 py-2">Producto</th>
+                  <th className="text-left px-4 py-2">Estado</th>
+                  <th className="text-left px-4 py-2">Disponible</th>
+                </tr>
+              </thead>
+              <tbody>
+                {disponibilidad.map((p) => (
+                  <tr key={p.id_producto} className="border-b border-border align-top">
+                    <td className="px-4 py-2 font-bold text-primary">#{p.id_producto}</td>
+                    <td className="px-4 py-2">{p.nombre}</td>
+                    <td className="px-4 py-2 text-text-soft">{p.estado}</td>
+                    <td className="px-4 py-2">
+                      {(p.materiasPrimas || []).length === 0 ? (
+                        <span className="text-xs text-danger">Sin receta</span>
+                      ) : (
+                        <span className={`font-bold ${(p.stock ?? 0) > 0 ? "text-success" : "text-danger"}`}>{p.stock ?? 0}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {disponibilidad.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="p-8 text-center text-text-soft">No hay productos</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg border border-border p-5 space-y-4">

@@ -70,10 +70,10 @@ export default function AdminCategoriasPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar categoría? Se desvinculará de sus productos.")) return;
+    if (!confirm("¿Dar de baja la categoría? Dejará de mostrarse.")) return;
     try {
       await deleteCategoria(id);
-      setMsg("Categoría eliminada");
+      setMsg("Categoría dada de baja");
       fetch();
     } catch (err) {
       setMsg(`Error: ${err.message}`);

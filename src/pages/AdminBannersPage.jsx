@@ -103,10 +103,10 @@ export default function AdminBannersPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar banner?")) return;
+    if (!confirm("¿Dar de baja el banner?")) return;
     try {
       await deleteBanner(id);
-      setMsg("Banner eliminado");
+      setMsg("Banner dado de baja");
       fetch();
     } catch (err) {
       setMsg(`Error: ${err.message}`);
