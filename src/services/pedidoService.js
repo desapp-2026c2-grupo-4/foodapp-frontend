@@ -9,6 +9,7 @@ export const createPedido = (payload) =>
 export const getPedidos = (params = {}) => {
   const q = new URLSearchParams();
   if (params.id_sucursal) q.set("id_sucursal", params.id_sucursal);
+  if (params.id_cliente) q.set("id_cliente", params.id_cliente);
   const qs = q.toString();
   return apiFetch(`/pedidos${qs ? `?${qs}` : ""}`);
 };

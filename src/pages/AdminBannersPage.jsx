@@ -45,7 +45,7 @@ export default function AdminBannersPage() {
       <p className="p-8 text-center text-danger">
         Acceso denegado — Solo administrador puede gestionar banners.{" "}
         <Link to="/" className="text-primary underline">
-          Elegir usuario
+          Volver al inicio
         </Link>
       </p>
     );
@@ -116,9 +116,6 @@ export default function AdminBannersPage() {
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       <h1 className="text-2xl font-extrabold">Gestión de banners — Admin</h1>
-      <p className="text-sm text-text-soft">
-        Alta, baja y modificación via POST / PUT / DELETE /api/banners. Se muestran arriba del catálogo, ordenados por orden.
-      </p>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-border p-5 space-y-4">
         <h3 className="font-semibold">{editingId ? `Modificar #${editingId}` : "Alta de banner"}</h3>

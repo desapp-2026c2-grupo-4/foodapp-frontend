@@ -7,8 +7,10 @@ import { updatePedidoEstado } from "../services/pedidoService.js";
 import StatusBadge from "../components/StatusBadge.jsx";
 import { formatFechaHora } from "../utils/fechas.js";
 
-// Se puede cancelar salvo que esté entregado o ya cancelado (igual que el backend)
-const esCancelable = (estado) => estado !== "Entregado" && estado !== "Cancelado";
+// El cliente puede cancelar hasta "En camino" (igual que el backend)
+const ESTADOS_CANCELABLES = ["Pendiente", "Confirmado", "Preparando", "En camino"];
+const esCancelable = (estado) => ESTADOS_CANCELABLES.includes(estado);
+const esActivo = (estado) => estado !== "Entregado" && estado !== "Cancelado";
 
 function OrderCard({ pedido, onCambio }) {
   const [cancelando, setCancelando] = useState(false);
@@ -54,10 +56,18 @@ function OrderCard({ pedido, onCambio }) {
       <div className="flex justify-between items-start gap-2">
         <div>
           <p className="font-bold">Pedido <span className="text-primary">#{p.id_pedido}</span></p>
-          <p className="text-xs text-text-soft">{formatFechaHora(p.fecha_hora)} — {p.direccion?.calle} {p.direccion?.altura}, {p.direccion?.ciudad}</p>
+          <p className="text-xs text-text-soft">{formatFechaHora(p.fecha_hora)}</p>
+          <p className="text-xs text-text-soft mt-0.5">{p.direccion?.calle} {p.direccion?.altura}, {p.direccion?.ciudad}</p>
+          <p className="text-xs text-text-soft mt-0.5">Sucursal: <span className="font-medium text-text">{p.sucursal?.nombre || "No asignada"}</span></p>
         </div>
         <StatusBadge estado={p.estado} />
       </div>
+      {esActivo(p.estado) && p.tiempo_estimado_min != null && (
+        <div className="mt-3 flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
+          <span className="text-text-soft">Tiempo estimado de entrega</span>
+          <span className="font-semibold text-primary">≈ {p.tiempo_estimado_min} min</span>
+        </div>
+      )}
       <ul className="mt-3 space-y-2 text-sm">
         {p.detalles?.map((d) => (
           <li key={d.id_detalle} className="flex justify-between gap-4 border border-border rounded-md px-3 py-2 bg-background">
@@ -144,8 +154,8 @@ export default function ClientHistoryPage() {
 
   useEffect(() => { fetchPedidos(); }, [user]);
 
-  if (!user) return <p className="p-8 text-center">Debes <Link to="/" className="text-primary underline">elegir un usuario</Link></p>;
-  if (user.rol !== "CLIENTE") return <p className="p-8 text-center text-text-soft">El historial es solo para clientes. Estás como <b>{user.rol}</b>. <Link to="/" className="text-primary underline">Cambiar usuario</Link></p>;
+  if (!user) return <p className="p-8 text-center">Debes <Link to="/login" className="text-primary underline">iniciar sesión</Link></p>;
+  if (user.rol !== "CLIENTE") return <p className="p-8 text-center text-text-soft">El historial es solo para clientes. Estás como <b>{user.rol}</b>. <Link to="/" className="text-primary underline">Volver al inicio</Link></p>;
   if (loading) return <p className="p-8 text-center text-text-soft">Cargando historial...</p>;
   if (error) return <p className="p-8 text-center text-danger">{error}</p>;
 

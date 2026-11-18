@@ -241,7 +241,6 @@ export default function CartPage() {
                 {loading ? "Confirmando..." : "Confirmar pedido"}
               </button>
             </div>
-            <p className="text-xs text-text-soft text-center">Al confirmar se crea un pedido con <span className="font-semibold">POST /api/pedidos</span> a nombre de {user?.rol === "CLIENTE" ? `${user.nombre} ${user.apellido}` : "el usuario seleccionado"}</p>
           </div>
         </>
       )}

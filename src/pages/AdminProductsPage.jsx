@@ -12,7 +12,6 @@ function VistaProductosEmpleado({ idSucursal }) {
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [listaAbierta, setListaAbierta] = useState(false);
 
   useEffect(() => {
     if (!idSucursal) { setLoading(false); return; }
@@ -58,24 +57,12 @@ function VistaProductosEmpleado({ idSucursal }) {
       </div>
 
       <div className="bg-white rounded-lg border border-border overflow-hidden">
-        <button
-          onClick={() => setListaAbierta((v) => !v)}
-          aria-expanded={listaAbierta}
-          className="w-full flex justify-between items-center px-4 py-3 md:cursor-default"
-        >
+        <div className="flex items-center px-4 py-3">
           <span className="font-bold text-sm">Productos ({productos.length})</span>
-          <svg
-            className={`w-4 h-4 md:hidden transition-transform ${listaAbierta ? "rotate-180" : ""}`}
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-          </svg>
-        </button>
+        </div>
 
         {/* Tarjetas apiladas en una columna (mobile) */}
-        <div className={`${listaAbierta ? "block" : "hidden"} md:hidden space-y-3 p-4 border-t border-border`}>
+        <div className="md:hidden space-y-3 p-4 border-t border-border">
           {productos.map((p) => (
             <div key={p.id_producto} className="rounded-md border border-border p-4 space-y-2 bg-white">
               <div className="flex justify-between items-start gap-2">
@@ -200,7 +187,7 @@ export default function AdminProductsPage() {
       .catch((e) => setError(e.message));
   }, [isAdmin, sucursalVista, productos]);
 
-  if (!isStaff) return <p className="p-8 text-center text-danger">Acceso denegado — Solo personal autorizado puede ver esta página. <Link to="/" className="text-primary underline">Elegir usuario</Link></p>;
+  if (!isStaff) return <p className="p-8 text-center text-danger">Acceso denegado — Solo personal autorizado puede ver esta página. <Link to="/" className="text-primary underline">Volver al inicio</Link></p>;
   if (!isAdmin) return <VistaProductosEmpleado idSucursal={user?.id_sucursal} />;
   if (loading) return <p className="p-8 text-center text-text-soft">Cargando productos...</p>;
   if (error) return <p className="p-8 text-center text-danger">{error}</p>;
@@ -281,7 +268,6 @@ export default function AdminProductsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-extrabold">Gestión de productos — Admin</h1>
-          <p className="text-sm text-text-soft">Alta, baja y modificación via POST / PUT / DELETE /api/productos</p>
         </div>
         <Link to="/admin/categorias" className="text-sm text-primary hover:underline shrink-0">→ Gestionar categorías</Link>
       </div>
@@ -299,7 +285,6 @@ export default function AdminProductsPage() {
             <select value={form.estado} onChange={(e)=>setForm({...form,estado:e.target.value})} className="w-full border border-border rounded-md px-3 py-2 mt-1">
               <option value="disponible">disponible</option>
               <option value="no_disponible">no_disponible</option>
-              <option value="pausado">pausado</option>
             </select>
           </label>
         </div>
@@ -368,6 +353,37 @@ export default function AdminProductsPage() {
         </div>
         {msg && <p className={`text-sm p-2 rounded-md border ${msg.startsWith("Error") ? "bg-red-50 text-danger border-red-200" : "bg-green-50 text-success border-green-200"}`}>{msg}</p>}
       </form>
+
+      <div className="bg-white rounded-lg border border-border p-5 space-y-4">
+        <h3 className="font-semibold">{editingOpcId ? `Modificar opcional #${editingOpcId}` : "Agregar opcional a producto"}</h3>
+        <p className="text-xs text-text-soft">El cliente los verá como checkboxes en el producto y se suman al precio. Observaciones siguen en campo libre.</p>
+        <form onSubmit={handleOpcSubmit} className="space-y-3">
+          <div className="grid md:grid-cols-3 gap-3">
+            <label className="text-sm">Producto*
+              <select value={opcForm.id_producto} onChange={(e)=>setOpcForm({...opcForm,id_producto:e.target.value})} required className="w-full border border-border rounded-md px-3 py-2 mt-1">
+                <option value="">-- elige --</option>
+                {productos.map((p)=><option key={p.id_producto} value={p.id_producto}>{p.nombre} (#{p.id_producto})</option>)}
+              </select>
+            </label>
+            <label className="text-sm">Nombre*<input value={opcForm.nombre} onChange={(e)=>setOpcForm({...opcForm,nombre:e.target.value})} required placeholder="Extra queso" className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
+            <label className="text-sm">Precio extra<input type="number" step="0.01" value={opcForm.precio} onChange={(e)=>setOpcForm({...opcForm,precio:e.target.value})} placeholder="0" className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <label className="text-sm">Descripción<input value={opcForm.descripcion} onChange={(e)=>setOpcForm({...opcForm,descripcion:e.target.value})} className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
+            <label className="text-sm">Estado
+              <select value={opcForm.estado} onChange={(e)=>setOpcForm({...opcForm,estado:e.target.value})} className="w-full border border-border rounded-md px-3 py-2 mt-1">
+                <option value="disponible">disponible</option>
+                <option value="no_disponible">no_disponible</option>
+              </select>
+            </label>
+          </div>
+          <div className="flex gap-3">
+            <button type="submit" className="bg-accent hover:bg-amber-600 text-white px-6 py-2 rounded-pill font-semibold">{editingOpcId ? "Guardar opcional" : "Agregar opcional"}</button>
+            {editingOpcId && <button type="button" onClick={()=>{setEditingOpcId(null); setOpcForm({id_producto:"",nombre:"",descripcion:"",precio:"",estado:"disponible"})}} className="border border-border bg-white px-6 py-2 rounded-pill">Cancelar</button>}
+          </div>
+        </form>
+        {opcMsg && <p className={`text-sm p-2 rounded-md border ${opcMsg.startsWith("Error") ? "bg-red-50 text-danger border-red-200" : "bg-green-50 text-success border-green-200"}`}>{opcMsg}</p>}
+      </div>
 
       <div className="bg-white rounded-lg border border-border overflow-hidden">
         <button
@@ -525,73 +541,69 @@ export default function AdminProductsPage() {
         {!sucursalVista ? (
           <p className="text-sm text-text-soft">Elegí una sucursal para ver la disponibilidad.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-background border-b border-border text-text-soft">
-                <tr>
-                  <th className="text-left px-4 py-2">#</th>
-                  <th className="text-left px-4 py-2">Producto</th>
-                  <th className="text-left px-4 py-2">Estado</th>
-                  <th className="text-left px-4 py-2">Disponible</th>
-                </tr>
-              </thead>
-              <tbody>
-                {disponibilidad.map((p) => (
-                  <tr key={p.id_producto} className="border-b border-border align-top">
-                    <td className="px-4 py-2 font-bold text-primary">#{p.id_producto}</td>
-                    <td className="px-4 py-2">{p.nombre}</td>
-                    <td className="px-4 py-2 text-text-soft">{p.estado}</td>
-                    <td className="px-4 py-2">
-                      {(p.materiasPrimas || []).length === 0 ? (
-                        <span className="text-xs text-danger">Sin receta</span>
-                      ) : (
-                        <span className={`font-bold ${(p.stock ?? 0) > 0 ? "text-success" : "text-danger"}`}>{p.stock ?? 0}</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {disponibilidad.length === 0 && (
+          <>
+            <div className="md:hidden space-y-3">
+              {disponibilidad.map((p) => (
+                <div key={p.id_producto} className="rounded-md border border-border p-4 space-y-3 bg-white">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <span className="font-bold text-primary text-sm">#{p.id_producto}</span>
+                      <p className="font-semibold">{p.nombre}</p>
+                    </div>
+                    <span className="text-xs text-text-soft shrink-0">{p.estado}</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-text-soft">Disponible</p>
+                    {(p.materiasPrimas || []).length === 0 ? (
+                      <span className="text-xs text-danger">Sin receta</span>
+                    ) : (
+                      <span className={`font-bold ${(p.stock ?? 0) > 0 ? "text-success" : "text-danger"}`}>{p.stock ?? 0}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {disponibilidad.length === 0 && (
+                <p className="rounded-md border border-border bg-white p-6 text-center text-sm text-text-soft">No hay productos</p>
+              )}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-background border-b border-border text-text-soft">
                   <tr>
-                    <td colSpan={4} className="p-8 text-center text-text-soft">No hay productos</td>
+                    <th className="text-left px-4 py-2">#</th>
+                    <th className="text-left px-4 py-2">Producto</th>
+                    <th className="text-left px-4 py-2">Estado</th>
+                    <th className="text-left px-4 py-2">Disponible</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {disponibilidad.map((p) => (
+                    <tr key={p.id_producto} className="border-b border-border align-top">
+                      <td className="px-4 py-2 font-bold text-primary">#{p.id_producto}</td>
+                      <td className="px-4 py-2">{p.nombre}</td>
+                      <td className="px-4 py-2 text-text-soft">{p.estado}</td>
+                      <td className="px-4 py-2">
+                        {(p.materiasPrimas || []).length === 0 ? (
+                          <span className="text-xs text-danger">Sin receta</span>
+                        ) : (
+                          <span className={`font-bold ${(p.stock ?? 0) > 0 ? "text-success" : "text-danger"}`}>{p.stock ?? 0}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {disponibilidad.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-text-soft">No hay productos</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
-      <div className="bg-white rounded-lg border border-border p-5 space-y-4">
-        <h3 className="font-semibold">{editingOpcId ? `Modificar opcional #${editingOpcId}` : "Agregar opcional a producto"}</h3>
-        <p className="text-xs text-text-soft">El cliente los verá como checkboxes en el producto y se suman al precio. Observaciones siguen en campo libre.</p>
-        <form onSubmit={handleOpcSubmit} className="space-y-3">
-          <div className="grid md:grid-cols-3 gap-3">
-            <label className="text-sm">Producto*
-              <select value={opcForm.id_producto} onChange={(e)=>setOpcForm({...opcForm,id_producto:e.target.value})} required className="w-full border border-border rounded-md px-3 py-2 mt-1">
-                <option value="">-- elige --</option>
-                {productos.map((p)=><option key={p.id_producto} value={p.id_producto}>{p.nombre} (#{p.id_producto})</option>)}
-              </select>
-            </label>
-            <label className="text-sm">Nombre*<input value={opcForm.nombre} onChange={(e)=>setOpcForm({...opcForm,nombre:e.target.value})} required placeholder="Extra queso" className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
-            <label className="text-sm">Precio extra<input type="number" step="0.01" value={opcForm.precio} onChange={(e)=>setOpcForm({...opcForm,precio:e.target.value})} placeholder="0" className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
-          </div>
-          <div className="grid md:grid-cols-2 gap-3">
-            <label className="text-sm">Descripción<input value={opcForm.descripcion} onChange={(e)=>setOpcForm({...opcForm,descripcion:e.target.value})} className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
-            <label className="text-sm">Estado
-              <select value={opcForm.estado} onChange={(e)=>setOpcForm({...opcForm,estado:e.target.value})} className="w-full border border-border rounded-md px-3 py-2 mt-1">
-                <option value="disponible">disponible</option>
-                <option value="no_disponible">no_disponible</option>
-              </select>
-            </label>
-          </div>
-          <div className="flex gap-3">
-            <button type="submit" className="bg-accent hover:bg-amber-600 text-white px-6 py-2 rounded-pill font-semibold">{editingOpcId ? "Guardar opcional" : "Agregar opcional"}</button>
-            {editingOpcId && <button type="button" onClick={()=>{setEditingOpcId(null); setOpcForm({id_producto:"",nombre:"",descripcion:"",precio:"",estado:"disponible"})}} className="border border-border bg-white px-6 py-2 rounded-pill">Cancelar</button>}
-          </div>
-        </form>
-        {opcMsg && <p className={`text-sm p-2 rounded-md border ${opcMsg.startsWith("Error") ? "bg-red-50 text-danger border-red-200" : "bg-green-50 text-success border-green-200"}`}>{opcMsg}</p>}
-        <p className="text-xs text-text-soft">Endpoints: <code className="bg-background border border-border px-1 rounded-sm">POST /api/productos/:id/opcionales</code> <code className="bg-background border border-border px-1 rounded-sm">PUT /api/opcionales/:id</code> <code className="bg-background border border-border px-1 rounded-sm">DELETE /api/opcionales/:id</code></p>
-      </div>
     </div>
   );
 }

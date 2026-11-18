@@ -136,13 +136,13 @@ export default function EmployeeOrderDetailPage() {
 
         <div className="border-t border-border pt-4 space-y-3">
           <h3 className="font-semibold text-sm">Avanzar estado</h3>
-          <ol className="flex flex-wrap items-center gap-1 text-xs">
+          <ol className="flex flex-col items-start gap-2 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:gap-1">
             {ESTADOS_EMPLEADO.map((est, i) => {
               const pasado = idxActual !== -1 && i < idxActual;
               const actual = i === idxActual;
               return (
                 <li key={est} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-text-soft mx-1">→</span>}
+                  {i > 0 && <span className="hidden text-text-soft mx-1 sm:inline">→</span>}
                   <span className={`px-2.5 py-1 rounded-pill border font-semibold ${actual ? "bg-primary text-white border-primary" : pasado ? "bg-green-50 text-success border-green-200" : "bg-white text-text-soft border-border"}`}>
                     {est === "Preparando" ? "En preparación" : est}
                   </span>
@@ -164,7 +164,6 @@ export default function EmployeeOrderDetailPage() {
             <p className="text-sm font-semibold text-success">Pedido finalizado — no hay más estados a los que avanzar.</p>
           )}
           {msg && <p className={`text-sm p-2 rounded-md ${msg.startsWith("Error") ? "bg-red-50 text-danger border border-red-200" : "bg-green-50 text-success border border-green-200"}`}>{msg}</p>}
-          <p className="text-xs text-text-soft">El flujo es en un solo sentido (pendiente → confirmado → en preparación → en camino → entregado): no se puede volver a un estado anterior — se persiste con <code className="bg-background border border-border px-1 rounded-sm">PUT /api/pedidos/:id</code> y genera historial.</p>
         </div>
 
         {pedido.historial?.length > 0 && (

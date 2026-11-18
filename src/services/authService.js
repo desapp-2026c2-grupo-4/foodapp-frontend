@@ -11,3 +11,15 @@ export const register = (data) =>
     method: "POST",
     body: JSON.stringify(data),
   });
+
+export const recuperarPassword = ({ email, dni }) =>
+  apiFetch("/auth/password/recuperar", {
+    method: "POST",
+    body: JSON.stringify({ email, dni }),
+  });
+
+export const restablecerPassword = ({ resetToken, passwordNueva }) =>
+  apiFetch("/auth/password/restablecer", {
+    method: "POST",
+    body: JSON.stringify({ resetToken, passwordNueva }),
+  });

@@ -133,7 +133,20 @@ export default function EmployeeOrdersPage() {
       )}
 
       {/* Filtro por estado */}
-      <div className="flex flex-wrap gap-2">
+      <label className="md:hidden block text-xs">
+        <span className="block mb-1 text-text-soft font-semibold">Estado</span>
+        <select
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value)}
+          className="w-full border border-border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-primary bg-white"
+        >
+          {[FILTRO_TODOS, ...ESTADOS_FILTRO].map((est) => (
+            <option key={est} value={est}>{est} ({conteos[est] ?? 0})</option>
+          ))}
+        </select>
+      </label>
+
+      <div className="hidden md:flex flex-wrap gap-2">
         {[FILTRO_TODOS, ...ESTADOS_FILTRO].map((est) => (
           <button
             key={est}
