@@ -21,7 +21,7 @@ const emptyForm = {
 };
 
 export default function AdminEmpleadosPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [empleados, setEmpleados] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export default function AdminEmpleadosPage() {
       <p className="p-8 text-center text-danger">
         Acceso denegado — Solo administrador puede gestionar empleados.{" "}
         <Link to="/" className="text-primary underline">
-          Elegir usuario
+          Volver al inicio
         </Link>
       </p>
     );
@@ -111,7 +111,14 @@ export default function AdminEmpleadosPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const esPropiaCuenta = (empleado) =>
+    Number(empleado.id_empleado) === Number(user?.id_empleado);
+
   const handleDelete = async (id) => {
+    if (Number(id) === Number(user?.id_empleado)) {
+      setMsg("Error: no podés dar de baja tu propia cuenta");
+      return;
+    }
     if (!confirm("¿Dar de baja el empleado? Ya no podrá iniciar sesión.")) return;
     try {
       await deleteEmpleado(id);
@@ -125,9 +132,6 @@ export default function AdminEmpleadosPage() {
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       <h1 className="text-2xl font-extrabold">Gestión de empleados — Admin</h1>
-      <p className="text-sm text-text-soft">
-        Alta, baja y modificación via POST / PUT / DELETE /api/empleados
-      </p>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-border p-5 space-y-4">
         <h3 className="font-semibold">{editingId ? `Modificar #${editingId}` : "Alta de empleado"}</h3>
@@ -228,7 +232,12 @@ export default function AdminEmpleadosPage() {
                 <button onClick={() => handleEdit(t)} className="flex-1 text-xs border border-border px-3 py-1.5 rounded-pill hover:border-primary">
                   Modificar
                 </button>
-                <button onClick={() => handleDelete(t.id_empleado)} className="flex-1 text-xs bg-danger text-white px-3 py-1.5 rounded-pill hover:bg-red-700">
+                <button
+                  onClick={() => handleDelete(t.id_empleado)}
+                  disabled={esPropiaCuenta(t)}
+                  title={esPropiaCuenta(t) ? "No podés dar de baja tu propia cuenta" : undefined}
+                  className="flex-1 text-xs bg-danger text-white px-3 py-1.5 rounded-pill hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   Baja
                 </button>
               </div>
@@ -265,7 +274,12 @@ export default function AdminEmpleadosPage() {
                     <button onClick={() => handleEdit(t)} className="text-xs border border-border px-3 py-1 rounded-pill hover:border-primary">
                       Modificar
                     </button>
-                    <button onClick={() => handleDelete(t.id_empleado)} className="text-xs bg-danger text-white px-3 py-1 rounded-pill hover:bg-red-700">
+                    <button
+                      onClick={() => handleDelete(t.id_empleado)}
+                      disabled={esPropiaCuenta(t)}
+                      title={esPropiaCuenta(t) ? "No podés dar de baja tu propia cuenta" : undefined}
+                      className="text-xs bg-danger text-white px-3 py-1 rounded-pill hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
                       Baja
                     </button>
                   </td>

@@ -1,20 +1,7 @@
 import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
-import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { reverseGeocode } from "../utils/geocoding.js";
-
-// Corrige las URLs del marcador por defecto (se rompen con bundlers como Vite)
-const defaultIcon = L.icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+import { defaultIcon } from "../utils/leafletIcon.js";
 
 const CENTRO_DEFAULT = [-34.6037, -58.3816]; // Obelisco, CABA
 

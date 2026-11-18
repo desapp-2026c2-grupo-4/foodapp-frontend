@@ -66,7 +66,7 @@ export default function AdminPromocionesPage() {
       <p className="p-8 text-center text-danger">
         Acceso denegado — Solo administrador puede gestionar promociones.{" "}
         <Link to="/" className="text-primary underline">
-          Elegir usuario
+          Volver al inicio
         </Link>
       </p>
     );
@@ -164,7 +164,6 @@ export default function AdminPromocionesPage() {
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       <h1 className="text-2xl font-extrabold">Gestión de promociones — Admin</h1>
-      <p className="text-sm text-text-soft">Alta, modificación, activación/desactivación y baja via POST / PUT / DELETE /api/promociones</p>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-border p-5 space-y-4">
         <h3 className="font-semibold">{editingId ? `Modificar #${editingId}` : "Nueva promoción"}</h3>

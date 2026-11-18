@@ -32,7 +32,7 @@ export default function ProfilePage() {
     }).catch((e) => setMsg(e.message)).finally(() => setLoading(false));
   }, [user]);
 
-  if (!user) return <p className="p-8 text-center">Debes <Link to="/" className="text-primary underline">elegir un usuario</Link></p>;
+  if (!user) return <p className="p-8 text-center">Debes <Link to="/login" className="text-primary underline">iniciar sesión</Link></p>;
   if (user.rol !== "CLIENTE") return <p className="p-8 text-center text-text-soft">El perfil es solo para clientes. Estás como <b>{user.rol}</b>.</p>;
   if (loading) return <p className="p-8 text-center text-text-soft">Cargando perfil...</p>;
 
@@ -133,7 +133,7 @@ export default function ProfilePage() {
         </div>
         <div className="grid md:grid-cols-2 gap-4">
           <label className="text-sm">Tipo doc<input name="tipo_doc" value={form.tipo_doc} onChange={handleChange} placeholder="DNI" className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
-          <label className="text-sm">DNI<input name="dni" value={form.dni} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
+          <label className="text-sm">DNI*<input name="dni" value={form.dni} onChange={handleChange} required className="w-full border border-border rounded-md px-3 py-2 mt-1" /></label>
         </div>
         <div className="text-sm">
           <p className="text-text-soft">Email (no se puede modificar, es tu credencial de acceso)</p>
@@ -148,7 +148,6 @@ export default function ProfilePage() {
             {saving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
-        <p className="text-xs text-text-soft text-center">PUT /api/clientes/:id</p>
       </form>
 
       <form onSubmit={handleSubmitPass} className="bg-white rounded-lg border border-border p-6 mt-6 space-y-4">

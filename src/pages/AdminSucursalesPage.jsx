@@ -7,6 +7,7 @@ import {
   updateSucursal,
   deleteSucursal,
 } from "../services/sucursalService.js";
+import { getParametrosMap } from "../services/parametroService.js";
 import MapPicker from "../components/MapPicker.jsx";
 import { reverseGeocode } from "../utils/geocoding.js";
 import { DIAS, crearHorariosVacios, formatHora, formatHorarios } from "../utils/horarios.js";
@@ -14,7 +15,7 @@ import useDebouncedForwardGeocode from "../hooks/useDebouncedForwardGeocode.js";
 
 const CAMPOS_DIRECCION = ["calle", "altura", "ciudad", "provincia", "codigo_postal"];
 
-const formVacio = () => ({
+const formVacio = (radioKm = "2") => ({
   nombre: "",
   estado: "activa",
   telefono: "",
@@ -26,7 +27,7 @@ const formVacio = () => ({
   codigo_postal: "",
   latitud: "",
   longitud: "",
-  radio_km: "2",
+  radio_km: String(radioKm),
 });
 
 export default function AdminSucursalesPage() {
@@ -34,7 +35,8 @@ export default function AdminSucursalesPage() {
   const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [form, setForm] = useState(formVacio);
+  const [form, setForm] = useState(() => formVacio());
+  const [radioDefault, setRadioDefault] = useState("2");
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState("");
   const [listaAbierta, setListaAbierta] = useState(false);
@@ -91,12 +93,23 @@ export default function AdminSucursalesPage() {
     if (isAdmin) fetch();
   }, [isAdmin]);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    getParametrosMap()
+      .then((map) => {
+        const valor = String(map.radio_cobertura_default_km ?? "2");
+        setRadioDefault(valor);
+        setForm((f) => (f.radio_km === "2" ? { ...f, radio_km: valor } : f));
+      })
+      .catch(() => {});
+  }, [isAdmin]);
+
   if (!isAdmin)
     return (
       <p className="p-8 text-center text-danger">
         Acceso denegado — Solo administrador puede gestionar sucursales.{" "}
         <Link to="/" className="text-primary underline">
-          Elegir usuario
+          Volver al inicio
         </Link>
       </p>
     );
@@ -183,7 +196,7 @@ export default function AdminSucursalesPage() {
         await createSucursal(toPayload());
         setMsg("Sucursal dada de alta");
       }
-      setForm(formVacio());
+      setForm(formVacio(radioDefault));
       setEditingId(null);
       fetch();
     } catch (err) {
@@ -213,7 +226,7 @@ export default function AdminSucursalesPage() {
       codigo_postal: s.codigo_postal || "",
       latitud: s.latitud ?? "",
       longitud: s.longitud ?? "",
-      radio_km: s.radio_km ?? "2",
+      radio_km: s.radio_km ?? radioDefault,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -232,9 +245,6 @@ export default function AdminSucursalesPage() {
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       <h1 className="text-2xl font-extrabold">Gestión de sucursales — Admin</h1>
-      <p className="text-sm text-text-soft">
-        Alta, baja y modificación via POST / PUT / DELETE /api/sucursales
-      </p>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-border p-5 space-y-4">
         <h3 className="font-semibold">{editingId ? `Modificar #${editingId}` : "Alta de sucursal"}</h3>
@@ -268,8 +278,8 @@ export default function AdminSucursalesPage() {
             {DIAS.map((d) => {
               const h = form.horarios[d.id];
               return (
-                <div key={d.id} className="flex flex-wrap items-center gap-2 text-sm">
-                  <label className="flex items-center gap-2 w-32">
+                <div key={d.id} className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
+                  <label className="flex items-center gap-2 sm:w-32">
                     <input
                       type="checkbox"
                       checked={h.abierto}
@@ -278,22 +288,24 @@ export default function AdminSucursalesPage() {
                     />
                     {d.nombre}
                   </label>
-                  <input
-                    type="time"
-                    value={h.apertura}
-                    onChange={(e) => handleHorarioChange(d.id, "apertura", e.target.value)}
-                    disabled={!h.abierto}
-                    className="border border-border rounded-md px-2 py-1 disabled:opacity-50"
-                  />
-                  <span className="text-xs text-text-soft">a</span>
-                  <input
-                    type="time"
-                    value={h.cierre}
-                    onChange={(e) => handleHorarioChange(d.id, "cierre", e.target.value)}
-                    disabled={!h.abierto}
-                    className="border border-border rounded-md px-2 py-1 disabled:opacity-50"
-                  />
-                  {!h.abierto && <span className="text-xs text-text-soft">Cerrado</span>}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={h.apertura}
+                      onChange={(e) => handleHorarioChange(d.id, "apertura", e.target.value)}
+                      disabled={!h.abierto}
+                      className="border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                    />
+                    <span className="text-xs text-text-soft">a</span>
+                    <input
+                      type="time"
+                      value={h.cierre}
+                      onChange={(e) => handleHorarioChange(d.id, "cierre", e.target.value)}
+                      disabled={!h.abierto}
+                      className="border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                    />
+                    {!h.abierto && <span className="text-xs text-text-soft">Cerrado</span>}
+                  </div>
                 </div>
               );
             })}
@@ -360,7 +372,7 @@ export default function AdminSucursalesPage() {
               type="button"
               onClick={() => {
                 setEditingId(null);
-                setForm(formVacio());
+                setForm(formVacio(radioDefault));
               }}
               className="border border-border bg-white px-6 py-2 rounded-pill"
             >
@@ -415,7 +427,7 @@ export default function AdminSucursalesPage() {
                 Tel: {s.telefono || "—"} · {formatHorarios(s.horarios)}
               </p>
               <p className="text-sm text-text-soft">
-                Radio de cobertura: {parseFloat(s.radio_km ?? 2)} km
+                Radio de cobertura: {parseFloat(s.radio_km ?? radioDefault)} km
               </p>
               <div className="flex gap-2 border-t border-border pt-3">
                 <button onClick={() => handleEdit(s)} className="flex-1 text-xs border border-border px-3 py-1.5 rounded-pill hover:border-primary">
@@ -464,7 +476,7 @@ export default function AdminSucursalesPage() {
                   <td className="px-4 py-2 text-text-soft">
                     {s.telefono || "—"} / {formatHorarios(s.horarios)}
                   </td>
-                  <td className="px-4 py-2 text-text-soft">{parseFloat(s.radio_km ?? 2)} km</td>
+                  <td className="px-4 py-2 text-text-soft">{parseFloat(s.radio_km ?? radioDefault)} km</td>
                   <td className="px-4 py-2 text-center space-x-2 whitespace-nowrap">
                     <button onClick={() => handleEdit(s)} className="text-xs border border-border px-3 py-1 rounded-pill hover:border-primary">
                       Modificar

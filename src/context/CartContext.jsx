@@ -1,16 +1,40 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { createPedido } from "../services/pedidoService.js";
 import { getPromocionById } from "../services/promocionService.js";
+import { useAuth } from "./AuthContext.jsx";
+import {
+  cargarCarritoInicial,
+  claveCarritoUsuario,
+  claveItemProducto,
+  guardarCarrito,
+} from "../utils/cartStorage.js";
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([]); // {cartId, id_producto, nombre, precio, imagen, cantidad, observaciones, opcionales:[{id_opcional,nombre,precio}]}
+  const { user } = useAuth();
+  const storageKey = claveCarritoUsuario(user);
+  const idCliente = user?.id_cliente ?? null;
 
-  const getKey = (id_producto, opcionales) => {
-    const ids = (opcionales || []).map((o) => o.id_opcional).sort((a, b) => a - b).join("-");
-    return `${id_producto}::${ids}`;
-  };
+  return (
+    <CartProviderInner storageKey={storageKey} idCliente={idCliente}>
+      {children}
+    </CartProviderInner>
+  );
+}
+
+function CartProviderInner({ children, storageKey, idCliente }) {
+  const [items, setItems] = useState(() => cargarCarritoInicial(storageKey, idCliente)); // {cartId, id_producto, nombre, precio, imagen, cantidad, observaciones, opcionales:[{id_opcional,nombre,precio}]}
+  const [claveActiva, setClaveActiva] = useState(storageKey);
+
+  if (storageKey !== claveActiva) {
+    setClaveActiva(storageKey);
+    setItems(cargarCarritoInicial(storageKey, idCliente));
+  }
+
+  useEffect(() => {
+    guardarCarrito(storageKey, items);
+  }, [items, storageKey]);
 
   const addProduct = (producto, cantidad = 1, selectedOpcionales = [], observaciones = "") => {
     const precioBase = parseFloat(producto.precio);
@@ -19,7 +43,7 @@ export function CartProvider({ children }) {
       nombre: o.nombre,
       precio: parseFloat(o.precio) || 0,
     }));
-    const key = getKey(producto.id_producto, opcionales);
+    const key = claveItemProducto(producto.id_producto, opcionales);
     setItems((prev) => {
       const idx = prev.findIndex((p) => p._key === key);
       if (idx >= 0) {
@@ -110,7 +134,10 @@ export function CartProvider({ children }) {
     });
   };
 
-  const clearCart = () => setItems([]);
+  const clearCart = () => {
+    setItems([]);
+    guardarCarrito(storageKey, []);
+  };
 
   // Repite un pedido: reconstruye el carrito a partir de sus detalles.
   // Los productos sueltos se agregan con su cantidad y opcionales; las líneas

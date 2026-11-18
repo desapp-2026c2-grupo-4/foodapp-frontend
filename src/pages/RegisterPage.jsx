@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import DireccionPicker from "../components/DireccionPicker.jsx";
@@ -19,6 +19,13 @@ export default function RegisterPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [direccion, setDireccion] = useState(null);
+  const [registroExitoso, setRegistroExitoso] = useState(false);
+
+  useEffect(() => {
+    if (!registroExitoso) return;
+    const timer = setTimeout(() => navigate("/catalogo", { replace: true }), 1800);
+    return () => clearTimeout(timer);
+  }, [registroExitoso, navigate]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -41,7 +48,6 @@ export default function RegisterPage() {
       const usuario = await register({
         ...payload,
         tipo_doc: payload.tipo_doc || undefined,
-        dni: payload.dni || undefined,
       });
       await createDireccion(usuario.id_cliente, {
         calle: direccion.calle,
@@ -54,7 +60,7 @@ export default function RegisterPage() {
         latitud: direccion.latitud,
         longitud: direccion.longitud,
       });
-      navigate("/catalogo");
+      setRegistroExitoso(true);
     } catch (err) {
       setMsg(`Error: ${err.message}`);
     } finally {
@@ -64,6 +70,21 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      {registroExitoso && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-md pointer-events-none"
+        >
+          <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-white px-4 py-3 shadow-lg">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-50 text-lg font-bold text-success">✓</span>
+            <div>
+              <p className="font-bold text-text">¡Registro exitoso!</p>
+              <p className="text-sm text-text-soft">Te redirigimos al catálogo...</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-xl w-full">
         <h1 className="text-3xl font-extrabold text-center text-text">Crear cuenta</h1>
         <p className="text-center text-text-soft mt-2">
@@ -90,8 +111,8 @@ export default function RegisterPage() {
               <input name="tipo_doc" value={form.tipo_doc} onChange={handleChange} placeholder="DNI" className="w-full border border-border rounded-md px-3 py-2 mt-1" />
             </label>
             <label className="text-sm">
-              DNI
-              <input name="dni" value={form.dni} onChange={handleChange} className="w-full border border-border rounded-md px-3 py-2 mt-1" />
+              DNI*
+              <input name="dni" value={form.dni} onChange={handleChange} required className="w-full border border-border rounded-md px-3 py-2 mt-1" />
             </label>
           </div>
           <label className="text-sm block">
@@ -118,10 +139,9 @@ export default function RegisterPage() {
             <p className="text-sm p-2 rounded-md border bg-red-50 text-danger border-red-200">{msg}</p>
           )}
 
-          <button type="submit" disabled={saving} className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-pill font-semibold disabled:opacity-50">
-            {saving ? "Registrando..." : "Registrarme"}
+          <button type="submit" disabled={saving || registroExitoso} className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-pill font-semibold disabled:opacity-50">
+            {registroExitoso ? "Registro exitoso" : saving ? "Registrando..." : "Registrarme"}
           </button>
-          <p className="text-xs text-text-soft text-center">POST /api/auth/register (siempre CLIENTE)</p>
         </form>
       </div>
     </div>
