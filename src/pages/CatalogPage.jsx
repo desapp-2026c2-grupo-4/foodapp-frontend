@@ -137,9 +137,9 @@ export default function CatalogPage() {
 
           <div>
             <p className="text-sm font-semibold mb-2">Precio</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-sm flex items-center gap-1">
-                Mín $
+            <div className="flex flex-nowrap items-center gap-1.5">
+              <label className="text-xs sm:text-sm flex items-center gap-1 min-w-0 flex-1">
+                <span className="shrink-0">Mín $</span>
                 <input
                   type="number"
                   min="0"
@@ -147,12 +147,12 @@ export default function CatalogPage() {
                   value={precioMin}
                   onChange={(e) => setPrecioMin(e.target.value)}
                   placeholder="0"
-                  className="w-24 border border-border rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary"
+                  className="w-full min-w-0 border border-border rounded-md px-1.5 py-1 text-xs sm:text-sm focus:outline-none focus:border-primary"
                 />
               </label>
-              <span className="text-text-soft">—</span>
-              <label className="text-sm flex items-center gap-1">
-                Máx $
+              <span className="text-text-soft shrink-0">—</span>
+              <label className="text-xs sm:text-sm flex items-center gap-1 min-w-0 flex-1">
+                <span className="shrink-0">Máx $</span>
                 <input
                   type="number"
                   min="0"
@@ -160,7 +160,7 @@ export default function CatalogPage() {
                   value={precioMax}
                   onChange={(e) => setPrecioMax(e.target.value)}
                   placeholder="Sin tope"
-                  className="w-24 border border-border rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary"
+                  className="w-full min-w-0 border border-border rounded-md px-1.5 py-1 text-xs sm:text-sm focus:outline-none focus:border-primary"
                 />
               </label>
             </div>

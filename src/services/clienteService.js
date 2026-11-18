@@ -7,6 +7,7 @@ export const registerCliente = (data) =>
   });
 
 export const getClientes = () => apiFetch("/clientes");
+export const getResumenClientes = () => apiFetch("/clientes/resumen");
 export const getClienteById = (id) => apiFetch(`/clientes/${id}`);
 export const updateCliente = (id, data) =>
   apiFetch(`/clientes/${id}`, {

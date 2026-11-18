@@ -36,7 +36,7 @@ export default function AdminCategoriasPage() {
       <p className="p-8 text-center text-danger">
         Acceso denegado — Solo administrador puede gestionar categorías.{" "}
         <Link to="/" className="text-primary underline">
-          Elegir usuario
+          Volver al inicio
         </Link>
       </p>
     );
@@ -85,7 +85,6 @@ export default function AdminCategoriasPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-extrabold">Gestión de categorías — Admin</h1>
-          <p className="text-sm text-text-soft">Alta, baja y modificación via POST / PUT / DELETE /api/categorias</p>
         </div>
         <Link to="/admin/productos" className="text-sm text-primary hover:underline shrink-0">
           → Asignar a productos

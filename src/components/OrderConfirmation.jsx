@@ -28,6 +28,12 @@ export default function OrderConfirmation({ pedido, onClose }) {
               <span className="text-text-soft">Estado</span>
               <span className="font-semibold bg-accent text-white text-xs px-2 py-0.5 rounded-pill">{pedido.estado}</span>
             </div>
+            {pedido.tiempo_estimado_min != null && (
+              <div className="flex justify-between">
+                <span className="text-text-soft">Tiempo estimado de entrega</span>
+                <span className="font-semibold text-primary">≈ {pedido.tiempo_estimado_min} min</span>
+              </div>
+            )}
             {pedido.sucursal && (
               <div className="flex justify-between">
                 <span className="text-text-soft">Sucursal</span>

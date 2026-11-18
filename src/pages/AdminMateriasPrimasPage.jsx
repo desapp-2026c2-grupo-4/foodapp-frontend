@@ -8,8 +8,16 @@ import {
   deleteMateriaPrima,
 } from "../services/materiaPrimaService.js";
 import { getSucursales } from "../services/sucursalService.js";
-import { getStockSucursal, agregarStock } from "../services/stockService.js";
+import { getParametrosMap } from "../services/parametroService.js";
+import {
+  getStockSucursal,
+  agregarStock,
+  reducirStock,
+  getReduccionesStock,
+} from "../services/stockService.js";
+import { formatFechaHora } from "../utils/fechas.js";
 import LowStockAlert from "../components/LowStockAlert.jsx";
+import ReducirStockModal from "../components/ReducirStockModal.jsx";
 
 export default function AdminMateriasPrimasPage() {
   const { isAdmin, isStaff, user } = useAuth();
@@ -19,6 +27,7 @@ export default function AdminMateriasPrimasPage() {
   const [nombre, setNombre] = useState("");
   const [estado, setEstado] = useState("disponible");
   const [stockMinimo, setStockMinimo] = useState("");
+  const [stockMinimoDefault, setStockMinimoDefault] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState("");
 
@@ -30,6 +39,11 @@ export default function AdminMateriasPrimasPage() {
   const [cantidades, setCantidades] = useState({});
   const [stockMsg, setStockMsg] = useState("");
   const [alertaAbierta, setAlertaAbierta] = useState(false);
+  const [reduccionMateria, setReduccionMateria] = useState(null);
+  const [reduccionLoading, setReduccionLoading] = useState(false);
+  const [reduccionError, setReduccionError] = useState("");
+  const [reducciones, setReducciones] = useState([]);
+  const [reduccionesLoading, setReduccionesLoading] = useState(false);
 
   const fetchMaterias = async () => {
     setLoading(true);
@@ -56,6 +70,13 @@ export default function AdminMateriasPrimasPage() {
     }
   }, [isStaff, isAdmin]);
 
+  useEffect(() => {
+    if (!isStaff) return;
+    getParametrosMap()
+      .then((map) => setStockMinimoDefault(Number(map.stock_minimo_default) || 0))
+      .catch(() => {});
+  }, [isStaff]);
+
   const cargarStock = async (autoAlerta = false) => {
     if (!idSucursal) {
       setStockRows([]);
@@ -72,8 +93,24 @@ export default function AdminMateriasPrimasPage() {
       setStockLoading(false);
     }
   };
+  const cargarReducciones = async () => {
+    if (!idSucursal) {
+      setReducciones([]);
+      return;
+    }
+    setReduccionesLoading(true);
+    try {
+      setReducciones(await getReduccionesStock(idSucursal));
+    } catch (e) {
+      setStockMsg(`Error: ${e.message}`);
+    } finally {
+      setReduccionesLoading(false);
+    }
+  };
+
   useEffect(() => {
     cargarStock(true);
+    cargarReducciones();
   }, [idSucursal]);
 
   if (!isStaff)
@@ -81,7 +118,7 @@ export default function AdminMateriasPrimasPage() {
       <p className="p-8 text-center text-danger">
         Acceso denegado — Solo personal autorizado puede gestionar materias primas.{" "}
         <Link to="/" className="text-primary underline">
-          Elegir usuario
+          Volver al inicio
         </Link>
       </p>
     );
@@ -92,7 +129,7 @@ export default function AdminMateriasPrimasPage() {
     e.preventDefault();
     setMsg("");
     if (!nombre.trim()) return setMsg("Error: el nombre es obligatorio");
-    const minimo = stockMinimo === "" ? 0 : parseInt(stockMinimo, 10);
+    const minimo = stockMinimo === "" ? stockMinimoDefault : parseInt(stockMinimo, 10);
     if (!Number.isInteger(minimo) || minimo < 0) {
       return setMsg("Error: el stock mínimo debe ser un entero mayor o igual a 0");
     }
@@ -149,6 +186,32 @@ export default function AdminMateriasPrimasPage() {
       await cargarStock(false);
     } catch (err) {
       setStockMsg(`Error: ${err.message}`);
+    }
+  };
+
+  const abrirReduccion = (m) => {
+    setReduccionMateria(m);
+    setReduccionError("");
+  };
+
+  const handleReducir = async ({ cantidad, motivo }) => {
+    if (!reduccionMateria || !idSucursal) return;
+    setReduccionLoading(true);
+    setReduccionError("");
+    try {
+      const r = await reducirStock({
+        id_sucursal: idSucursal,
+        id_materia_prima: reduccionMateria.id_materia_prima,
+        cantidad,
+        motivo,
+      });
+      setStockMsg(`Stock reducido: ${r.nombre} → ${r.stock_nuevo} unidades`);
+      setReduccionMateria(null);
+      await Promise.all([cargarStock(false), cargarReducciones()]);
+    } catch (err) {
+      setReduccionError(err.message);
+    } finally {
+      setReduccionLoading(false);
     }
   };
 
@@ -220,7 +283,7 @@ export default function AdminMateriasPrimasPage() {
                 step="1"
                 value={stockMinimo}
                 onChange={(e) => setStockMinimo(e.target.value)}
-                placeholder="Ej. 20"
+                placeholder={String(stockMinimoDefault)}
                 className="w-full border border-border rounded-md px-3 py-2 mt-1"
               />
             </label>
@@ -300,42 +363,177 @@ export default function AdminMateriasPrimasPage() {
         ) : stockLoading ? (
           <p className="text-sm text-text-soft">Cargando stock...</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-background border-b border-border text-text-soft">
-                <tr>
-                  <th className="text-left px-4 py-2">#</th>
-                  <th className="text-left px-4 py-2">Materia prima</th>
-                  <th className="text-left px-4 py-2">Estado</th>
-                  <th className="text-left px-4 py-2">Stock</th>
-                  <th className="text-left px-4 py-2">Mínimo</th>
-                  <th className="text-center px-4 py-2">Agregar stock</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockRows.map((m) => (
-                  <tr key={m.id_materia_prima} className={`border-b border-border align-top ${m.bajo_stock ? "bg-red-50" : ""}`}>
-                    <td className="px-4 py-2 font-bold text-primary">#{m.id_materia_prima}</td>
-                    <td className="px-4 py-2 font-medium">{m.nombre}</td>
-                    <td className="px-4 py-2 text-text-soft">{m.estado}</td>
-                    <td className="px-4 py-2">
-                      <span className={`font-bold ${m.bajo_stock ? "text-danger" : m.stock > 0 ? "text-success" : "text-danger"}`}>{m.stock}</span>
-                      {m.bajo_stock && <span className="ml-2 text-[11px] font-bold bg-danger text-white px-2 py-0.5 rounded-pill">Bajo stock</span>}
-                    </td>
-                    <td className="px-4 py-2 text-text-soft">{m.stock_minimo > 0 ? m.stock_minimo : "—"}</td>
-                    <td className="px-4 py-2">{controlAgregar(m)}</td>
-                  </tr>
-                ))}
-                {stockRows.length === 0 && (
+          <>
+            <div className="md:hidden space-y-3">
+              {stockRows.map((m) => (
+                <div
+                  key={m.id_materia_prima}
+                  className={`rounded-md border p-4 space-y-3 ${m.bajo_stock ? "border-red-200 bg-red-50" : "border-border bg-white"}`}
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <span className="font-bold text-primary text-sm">#{m.id_materia_prima}</span>
+                      <p className="font-semibold">{m.nombre}</p>
+                    </div>
+                    <span className="text-xs text-text-soft shrink-0">{m.estado}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-text-soft">Stock</p>
+                      <p>
+                        <span className={`font-bold ${m.bajo_stock ? "text-danger" : m.stock > 0 ? "text-success" : "text-danger"}`}>{m.stock}</span>
+                        {m.bajo_stock && <span className="ml-2 text-[11px] font-bold bg-danger text-white px-2 py-0.5 rounded-pill">Bajo stock</span>}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-soft">Mínimo</p>
+                      <p className="text-text-soft">{m.stock_minimo > 0 ? m.stock_minimo : "—"}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-text-soft mb-1">Agregar stock</p>
+                    {controlAgregar(m)}
+                  </div>
+                  <button
+                    onClick={() => abrirReduccion(m)}
+                    disabled={m.stock <= 0}
+                    title={m.stock <= 0 ? "No hay stock para reducir" : undefined}
+                    className="w-full text-xs bg-danger text-white px-3 py-1.5 rounded-pill hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Reducir stock
+                  </button>
+                </div>
+              ))}
+              {stockRows.length === 0 && (
+                <p className="rounded-md border border-border bg-white p-6 text-center text-sm text-text-soft">No hay materias primas</p>
+              )}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-background border-b border-border text-text-soft">
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-text-soft">No hay materias primas</td>
+                    <th className="text-left px-4 py-2">#</th>
+                    <th className="text-left px-4 py-2">Materia prima</th>
+                    <th className="text-left px-4 py-2">Estado</th>
+                    <th className="text-left px-4 py-2">Stock</th>
+                    <th className="text-left px-4 py-2">Mínimo</th>
+                    <th className="text-center px-4 py-2">Agregar stock</th>
+                    <th className="text-center px-4 py-2">Reducir stock</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {stockRows.map((m) => (
+                    <tr key={m.id_materia_prima} className={`border-b border-border align-top ${m.bajo_stock ? "bg-red-50" : ""}`}>
+                      <td className="px-4 py-2 font-bold text-primary">#{m.id_materia_prima}</td>
+                      <td className="px-4 py-2 font-medium">{m.nombre}</td>
+                      <td className="px-4 py-2 text-text-soft">{m.estado}</td>
+                      <td className="px-4 py-2">
+                        <span className={`font-bold ${m.bajo_stock ? "text-danger" : m.stock > 0 ? "text-success" : "text-danger"}`}>{m.stock}</span>
+                        {m.bajo_stock && <span className="ml-2 text-[11px] font-bold bg-danger text-white px-2 py-0.5 rounded-pill">Bajo stock</span>}
+                      </td>
+                      <td className="px-4 py-2 text-text-soft">{m.stock_minimo > 0 ? m.stock_minimo : "—"}</td>
+                      <td className="px-4 py-2">{controlAgregar(m)}</td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          onClick={() => abrirReduccion(m)}
+                          disabled={m.stock <= 0}
+                          title={m.stock <= 0 ? "No hay stock para reducir" : undefined}
+                          className="text-xs bg-danger text-white px-3 py-1.5 rounded-pill hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Reducir stock
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {stockRows.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-text-soft">No hay materias primas</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
+
+      {idSucursal && (
+        <div className="bg-white rounded-lg border border-border overflow-hidden">
+          <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-border">
+            <h3 className="font-semibold text-sm">Historial de reducciones</h3>
+            <span className="text-xs text-text-soft">Últimas 20</span>
+          </div>
+          {reduccionesLoading ? (
+            <p className="p-6 text-center text-sm text-text-soft">Cargando historial...</p>
+          ) : reducciones.length === 0 ? (
+            <p className="p-6 text-center text-sm text-text-soft">No hay reducciones registradas.</p>
+          ) : (
+            <>
+              <div className="md:hidden space-y-3 p-4">
+                {reducciones.map((r) => (
+                  <div key={r.id_reduccion_stock} className="rounded-md border border-border p-4 space-y-3 bg-white">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="font-semibold">{r.materia_prima?.nombre || "—"}</p>
+                        <p className="text-xs text-text-soft">{formatFechaHora(r.fecha_hora)}</p>
+                      </div>
+                      <span className="font-bold text-danger shrink-0">-{r.cantidad}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-xs text-text-soft">Stock</p>
+                        <p className="text-text-soft">{r.stock_anterior} → {r.stock_nuevo}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-text-soft">Usuario</p>
+                        <p className="text-text-soft">
+                          {r.empleado ? `${r.empleado.nombre} ${r.empleado.apellido}` : "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-soft">Motivo</p>
+                      <p className="text-sm">{r.motivo}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-background border-b border-border text-text-soft">
+                    <tr>
+                      <th className="text-left px-4 py-2">Fecha</th>
+                      <th className="text-left px-4 py-2">Materia prima</th>
+                      <th className="text-right px-4 py-2">Cantidad</th>
+                      <th className="text-center px-4 py-2">Stock</th>
+                      <th className="text-left px-4 py-2">Motivo</th>
+                      <th className="text-left px-4 py-2">Usuario</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reducciones.map((r) => (
+                      <tr key={r.id_reduccion_stock} className="border-b border-border align-top">
+                        <td className="px-4 py-2 text-text-soft whitespace-nowrap">{formatFechaHora(r.fecha_hora)}</td>
+                        <td className="px-4 py-2 font-medium">{r.materia_prima?.nombre || "—"}</td>
+                        <td className="px-4 py-2 text-right font-bold text-danger">-{r.cantidad}</td>
+                        <td className="px-4 py-2 text-center text-text-soft">
+                          {r.stock_anterior} → {r.stock_nuevo}
+                        </td>
+                        <td className="px-4 py-2">{r.motivo}</td>
+                        <td className="px-4 py-2 text-text-soft">
+                          {r.empleado ? `${r.empleado.nombre} ${r.empleado.apellido}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {isAdmin && (
         <div className="bg-white rounded-lg border border-border overflow-hidden">
@@ -374,6 +572,25 @@ export default function AdminMateriasPrimasPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {reduccionMateria && (
+        <ReducirStockModal
+          materia={reduccionMateria}
+          sucursalNombre={
+            sucursales.find((s) => Number(s.id_sucursal) === Number(idSucursal))?.nombre ||
+            user?.sucursal?.nombre ||
+            "Sucursal"
+          }
+          onClose={() => {
+            if (reduccionLoading) return;
+            setReduccionMateria(null);
+            setReduccionError("");
+          }}
+          onConfirm={handleReducir}
+          loading={reduccionLoading}
+          error={reduccionError}
+        />
       )}
 
       {alertaAbierta && <LowStockAlert items={bajos} onClose={() => setAlertaAbierta(false)} />}

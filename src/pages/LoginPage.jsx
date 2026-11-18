@@ -49,6 +49,12 @@ export default function LoginPage() {
             <input name="password" type="password" value={form.password} onChange={handleChange} required className="w-full border border-border rounded-md px-3 py-2 mt-1" />
           </label>
 
+          <div className="text-right">
+            <Link to="/recuperar-password" className="text-sm text-primary underline font-medium">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+
           {msg && (
             <p className="text-sm p-2 rounded-md border bg-red-50 text-danger border-red-200">{msg}</p>
           )}
@@ -56,7 +62,6 @@ export default function LoginPage() {
           <button type="submit" disabled={ingresando} className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-pill font-semibold disabled:opacity-50">
             {ingresando ? "Ingresando..." : "Ingresar"}
           </button>
-          <p className="text-xs text-text-soft text-center">POST /api/auth/login</p>
         </form>
       </div>
     </div>
